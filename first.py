@@ -2,6 +2,7 @@ import json
 import urllib
 import string
 from tqdm import tqdm
+import pandas as pd
 from urllib.parse import quote
 
 
@@ -45,3 +46,8 @@ def solr_stat():
             if len(bcs.intersection(curbcs)):
                 positions.append(i)
                 break
+
+    positions = pd.Series(positions)
+    ax = positions.plot(kind='hist', title='positions')
+    fig = ax.get_figure()
+    fig.savefig('../data/dedup/positions_stat.pdf')
