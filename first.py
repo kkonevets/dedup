@@ -48,6 +48,7 @@ def solr_stat():
                 break
 
     positions = pd.Series(positions)
-    ax = positions.plot(kind='hist', title='positions')
-    fig = ax.get_figure()
-    fig.savefig('../data/dedup/positions_stat.pdf')
+    positions.to_csv('../data/dedup/solr_positions.csv', index=False)
+    # ax = positions.plot(kind='hist', title='positions')
+    # fig = ax.get_figure()
+    # fig.savefig('../data/dedup/solr_positions.pdf')
