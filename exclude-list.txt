@@ -1,7 +1,7 @@
 *.o
 *.so
-.git
-build
+.git/*
+build/*
 Release/*
 Debug/*
 __pycache__
