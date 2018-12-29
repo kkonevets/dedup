@@ -1,6 +1,6 @@
 *.o
 *.so
-.git/*
+.git
 build/*
 Release/*
 Debug/*
