@@ -6,6 +6,9 @@ from tqdm import tqdm
 import pandas as pd
 from urllib.parse import quote
 import pickle
+import matplotlib
+
+matplotlib.use('agg')
 
 
 def query_solr(text, rows=1, exclude=[]):
@@ -90,11 +93,29 @@ def solr_stat():
     positions['equal'] = positions['et_name'].apply(
         utils.normalize) == positions['el_name'].apply(utils.normalize)
     positions.to_excel('../data/dedup/solr_positions.xlsx', index=False)
-    (positions['i'].value_counts()/positions.shape[0]).head(40)
 
-    # ax = positions.plot(kind='hist', title='positions')
-    # fig = ax.get_figure()
-    # fig.savefig('../data/dedup/solr_positions.pdf')
+    rel1 = (positions['i'].value_counts()/positions.shape[0]).head(40)
+    print(rel1)
+
+    # positions = pd.read_excel('../data/dedup/solr_positions.xlsx')
+    excl = positions[~positions['i'].isin([-1, -2])]
+    rel2 = (excl['i'].value_counts()/positions.shape[0])
+    print(rel2.sum())
+
+    import matplotlib.pyplot as plt
+
+    cumsum = rel2.sort_index().cumsum()
+    plt.clf()
+    ax = cumsum.plot(xlim=[0, 100], ylim=[cumsum.min(), cumsum.max()],
+                     title='SOLR found in top N', grid=True)
+    fig = ax.get_figure()
+    ax.set_xlabel("top N")
+    ax.set_ylabel("recall")
+    fig.savefig('../data/dedup/cumsum.pdf')
+
+    incl = positions[positions['i'].isin([-1, -2])]
+    incl['i'].value_counts()
+    # pos_sort = positions.sort_values('i', ascending=False)
 
 
 if __name__ == "__main__":

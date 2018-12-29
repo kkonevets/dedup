@@ -21,6 +21,9 @@ def normalize(sent):
 
 
 def normalize_v1(sent):
+    """
+    this is better then v0
+    """
     sent = sent.translate(TransTable).lower()
     tokens = (t for t in wt.tokenize(sent, False) if len(t) > 1)
     sent = " ".join(tokens)
@@ -47,8 +50,7 @@ def load_master():
 
     pkls = glob(dir_name + 'master**.pkl')
     if len(pkls):
-        with open(pkls[0], 'rb') as f:
-            data = pickle.load(f)
+        data = do_unpickle(pkls[0])
     else:
         fname = sorted(glob(dir_name + 'master**.zip'))[-1]
         with zipfile.ZipFile(fname, 'r') as z:
@@ -56,7 +58,17 @@ def load_master():
             with z.open(inner_name) as f:
                 text = f.read()
             data = json.loads(text.decode("utf-8"))
-        with open(dir_name + 'master.pkl', 'wb') as f:
-            pickle.dump(data, f)
+        do_pickle(data, dir_name + 'master.pkl')
     print('master loaded')
+    return data
+
+
+def do_pickle(data, fname):
+    with open(fname, 'wb') as f:
+        pickle.dump(data, f)
+
+
+def do_unpickle(fname):
+    with open(fname, 'rb') as f:
+        data = pickle.load(f)
     return data
