@@ -81,7 +81,7 @@ def solr_stat():
                     break
 
             if len(rec) == 3:
-                rec += [None, '', '', -2]
+                rec += [None, mname, '', -2]
                 positions.append(rec)
 
         # if len(positions) > 10:
