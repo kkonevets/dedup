@@ -1,18 +1,36 @@
 from glob import glob
 import json
+import re
 import pickle
 import zipfile
 import os
 from textblob.tokenizers import WordTokenizer
+import string
+
+chars = string.punctuation
+chars = chars.replace('%', '').replace('_', '').replace('@', '')
+punct_tt = str.maketrans(dict.fromkeys(chars, ' '))
+prog = re.compile("[\\W\\d]", re.UNICODE)
 
 TransTable = str.maketrans(dict.fromkeys(r'/-()|{}:^+', ' '))
 wt = WordTokenizer()
 
 
 def normalize(sent):
+    return normalize_v1(sent)
+
+
+def normalize_v1(sent):
     sent = sent.translate(TransTable).lower()
     tokens = (t for t in wt.tokenize(sent, False) if len(t) > 1)
     sent = " ".join(tokens)
+    return sent
+
+
+def normalize_v0(sent):
+    tokens = sent.translate(punct_tt).lower().split()
+    tokens = (prog.sub('', w) for w in tokens)
+    sent = ' '.join((w for w in tokens if len(w) > 1))
     return sent
 
 

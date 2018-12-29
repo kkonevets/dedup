@@ -90,7 +90,7 @@ def solr_stat():
     positions['equal'] = positions['et_name'].apply(
         utils.normalize) == positions['el_name'].apply(utils.normalize)
     positions.to_excel('../data/dedup/solr_positions.xlsx', index=False)
-    positions['i'].value_counts()/positions.shape[0]
+    (positions['i'].value_counts()/positions.shape[0]).head(40)
 
     # ax = positions.plot(kind='hist', title='positions')
     # fig = ax.get_figure()
