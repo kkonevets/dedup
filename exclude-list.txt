@@ -1,0 +1,7 @@
+*.o
+*.so
+.git
+build
+Release/*
+Debug/*
+__pycache__

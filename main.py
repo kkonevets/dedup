@@ -1,14 +1,11 @@
+import utils
 import json
 import urllib
 import string
 from tqdm import tqdm
 import pandas as pd
 from urllib.parse import quote
-import pymongo
-from pymongo import MongoClient
 import pickle
-
-import utils
 
 
 def query_solr(text, rows=1, exclude=[]):
@@ -45,30 +42,29 @@ def solr_stat():
     id2brand = {b['id']: b for b in db['brands']}
     positions = []
     nrows = 100
-    chars = string.punctuation
-    chars = chars.replace('%', '').replace('_', '').replace('@', '')
-    tt = str.maketrans(dict.fromkeys(chars, ' '))
 
     for et in tqdm(singles):
         bcs = set([int(c) for c in et['barcodes']])
-        name = et['name'].translate(tt).lower()
         bid = et.get('brandId')
         bname = ''
         if bid:
-            bname = id2brand[bid]['name']
-            if bname.lower() not in name:
-                bname = ''
+            bname = utils.normalize(id2brand[bid]['name'])
 
-        text = name + bname.translate(tt).lower()
-        found = query_solr(text, nrows)
+        name = utils.normalize(et['name'])
 
         met = mid2et[et['srcId']]
-        mname = met['name'].translate(tt).lower()
+        mname = utils.normalize(met['name'])
 
-        names = [name] + [s['name'].translate(tt).lower()
+        names = [name] + [utils.normalize(s['name'])
                           for s in et.get('synonyms', [])]
+        names = [n for n in names if n != mname]
 
         for curname in names:
+            text = curname + ' ' + bname
+            if text.strip() == '':
+                continue
+            found = query_solr(text, nrows)
+
             rec = [et['id'], curname, bname]
             if len(found) == 0:
                 rec += [None, '', '', -1]
@@ -92,10 +88,15 @@ def solr_stat():
     positions.columns = ['et_id', 'et_name', 'et_brand',
                          'el_id', 'el_name', 'el_brand', 'i']
     positions['equal'] = positions['et_name'].apply(
-        lambda s: s.translate(tt).lower()) == positions['el_name'].apply(lambda s: str.lower(s))
+        utils.normalize) == positions['el_name'].apply(utils.normalize)
     positions.to_excel('../data/dedup/solr_positions.xlsx', index=False)
     positions['i'].value_counts()/positions.shape[0]
 
     # ax = positions.plot(kind='hist', title='positions')
     # fig = ax.get_figure()
     # fig.savefig('../data/dedup/solr_positions.pdf')
+
+
+if __name__ == "__main__":
+    pass
+    # solr_stat()

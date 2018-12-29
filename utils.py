@@ -5,7 +5,7 @@ import zipfile
 import os
 from textblob.tokenizers import WordTokenizer
 
-TransTable = str.maketrans(dict.fromkeys('/-()|{}', ' '))
+TransTable = str.maketrans(dict.fromkeys(r'/-()|{}:^+', ' '))
 wt = WordTokenizer()
 
 
