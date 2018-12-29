@@ -11,7 +11,7 @@ def copy_key(src, dst, key):
         dst[key] = val
 
 
-def clean_et(et, tt):
+def clean_et(et):
     for k, v in et.items():
         if type(v) == str:
             et[k] = utils.normalize(v)

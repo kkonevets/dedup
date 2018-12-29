@@ -9,6 +9,12 @@ docker exec -it --user=solr solonom bin/solr create_core -c nom_core
 
 docker cp stopwords_ru.txt solonom:/opt/solr/server/solr/nom_core/conf/lang/stopwords_ru.txt
 
+        # {
+        #   "class": "solr.PatternReplaceFilterFactory",
+        #   "pattern": "\\d+",
+        #   "replacement": ""
+        # },
+
 curl -X POST -H 'Content-type:application/json' --data-binary '{
   "add-field-type": {
     "name": "text_general_ru",
@@ -21,11 +27,6 @@ curl -X POST -H 'Content-type:application/json' --data-binary '{
       "filters": [
          {
           "class": "solr.LowerCaseFilterFactory"
-        },
-        {
-          "class": "solr.PatternReplaceFilterFactory",
-          "pattern": "\\d+",
-          "replacement": ""
         },
         {
           "class": "solr.StopFilterFactory",

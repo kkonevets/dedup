@@ -3,14 +3,15 @@ import json
 import pickle
 import zipfile
 import os
-from nltk.tokenize import word_tokenize
+from textblob.tokenizers import WordTokenizer
 
 TransTable = str.maketrans(dict.fromkeys('/-()|{}', ' '))
+wt = WordTokenizer()
 
 
 def normalize(sent):
     sent = sent.translate(TransTable).lower()
-    tokens = word_tokenize(sent)
+    tokens = (t for t in wt.tokenize(sent, False) if len(t) > 1)
     sent = " ".join(tokens)
     return sent
 
