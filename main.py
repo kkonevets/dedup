@@ -70,7 +70,7 @@ def solr_stat():
 
             rec = [et['id'], curname, bname]
             if len(found) == 0:
-                rec += [None, '', '', -1]
+                rec += [None, mname, '', -1]
                 positions.append(rec)
 
             for i, el in enumerate(found):
