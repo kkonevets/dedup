@@ -6,6 +6,9 @@ import zipfile
 import os
 from textblob.tokenizers import WordTokenizer
 import string
+from transliterate import translit
+
+# from tokenizer import tokenize
 
 chars = string.punctuation
 chars = chars.replace('%', '').replace('_', '').replace('@', '')
@@ -14,16 +17,20 @@ prog = re.compile("[\\W\\d]", re.UNICODE)
 
 float_prog = re.compile(r"[-+]?\d*\.\d+|\d+", re.UNICODE)
 
-TransTable = str.maketrans(dict.fromkeys(r'/-()|{}:^+', ' '))
+TransTable = str.maketrans(dict.fromkeys(r'/-()|{}:^+\\', ' '))
 wt = WordTokenizer()
 
-unit_lookup = {'г': 'грамм', 'грам': 'грамм', 'гр': 'грамм', 'грамм': 'грамм', 'gr': 'грамм',
-               'ml': 'мл', 'милл': 'мл', 'млитр': 'мл', 'млтр': 'мл', 'мл': 'мл',
-               'ш': 'шт', 'шт': 'шт',
-               'л': 'литр', 'литр': 'литр', 'лит': 'литр',
-               'kg': 'кг', 'кг': 'кг',
-               'mm': 'мм', 'cm': 'см', 'мм': 'мм', 'см': 'см',
-               '№': 'номер', 'ном': 'номер'}
+unit_lookup = {
+    'г': 'грамм', 'грам': 'грамм', 'гр': 'грамм', 'грамм': 'грамм', 'gr': 'грамм',
+    'ml': 'мл', 'милл': 'мл', 'млитр': 'мл', 'млтр': 'мл', 'мл': 'мл',
+    'ш': 'шт', 'шт': 'шт',
+    'тон': 'тонна', 'тн': 'тонна', 'тонна': 'тонна', 'тонн': 'тонна',
+    'л': 'литр', 'литр': 'литр', 'лит': 'литр',
+    'kg': 'кг', 'кг': 'кг',
+    'mm': 'мм', 'cm': 'см', 'мм': 'мм', 'см': 'см',
+    'дм': 'дм',
+    '№': 'номер', 'ном': 'номер',
+    'ват': 'ватт', 'вт': 'ватт', 'ватт': 'ватт'}
 
 
 def normalize(sent):
@@ -32,7 +39,10 @@ def normalize(sent):
 
 def isnum(t):
     try:
-        return str(float(t))
+        f = float(t)
+        if f.is_integer():
+            return str(int(f))
+        return str(f)
     except:
         return False
 
@@ -61,15 +71,21 @@ def proceed_token(t):
     if num:
         return num
 
+    t = t.rstrip('ъ')
+
+    # all ascii
+    if all(ord(char) < 128 for char in t):
+        t = translit(t, 'ru')
+
     tmp = t.split('х')  # russian х
     if len(tmp) == 1:
         tmp = t.split('*')
-    if len(tmp) > 1 and isnum(tmp[0]) and isnum(tmp[1]):
+    if len(tmp) > 1 and all((isnum(el) for el in tmp)):
         return 'x'.join(tmp)  # english x
 
-    t = split_unit(t)
-    if type(t) == tuple:
-        return t[0] + ' ' + t[1]
+    tmp = split_unit(t)
+    if type(tmp) == tuple:
+        return tmp[0] + ' ' + tmp[1]
 
     t = t.replace('.', ' ')
     tmp = (unit_lookup.get(t, t) for t in t.split(' '))

@@ -1,8 +1,15 @@
 {
     "python.pythonPath": "/usr/local/bin/python3",
     "editor.formatOnSave": true,
-    "sync-rsync.delete": true,
+    "[cython]": {
+        "editor.tabSize": 2
+    },
+    //"sync-rsync.delete": true,
     "sync-rsync.onSave": true,
+    "sync-rsync.exclude": [
+        "build",
+        "*.so"
+    ],
     "sync-rsync.sites": [
         {
             "localPath": "/Users/imafamilia/Documents/dedup/",
