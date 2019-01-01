@@ -1,14 +1,12 @@
 {
     "python.pythonPath": "/usr/local/bin/python3",
     "editor.formatOnSave": true,
+    "sync-rsync.delete": true,
+    "sync-rsync.onSave": true,
     "sync-rsync.sites": [
         {
-            "localPath": "/Users/imafamilia/Documents/dedup",
-            "remotePath": "guyos@c:/home/guyos/D/Documents/dedup"
-        },
-        {
-            "localPath": "/Users/imafamilia/Documents/pydev",
-            "remotePath": "guyos@c:/home/guyos/D/Documents/pydev"
+            "localPath": "/Users/imafamilia/Documents/dedup/",
+            "remotePath": "guyos@c:/home/guyos/D/Documents/dedup/"
         }
     ]
 }

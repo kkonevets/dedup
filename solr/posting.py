@@ -56,4 +56,4 @@ def etalons_to_docs():
 
 if __name__ == '__main__':
     pass
-    # etalons_to_docs()
+    etalons_to_docs()

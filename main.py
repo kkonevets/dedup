@@ -10,6 +10,8 @@ import matplotlib
 
 matplotlib.use('agg')
 
+# hi2
+
 
 def query_solr(text, rows=1, exclude=[]):
     q = 'http://c:8983/solr/nom_core/select?df=my_text_ru' \
@@ -121,4 +123,4 @@ def solr_stat():
 
 if __name__ == "__main__":
     pass
-    # solr_stat()
+    solr_stat()

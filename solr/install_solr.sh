@@ -9,6 +9,10 @@ docker exec -it --user=solr solonom bin/solr create_core -c nom_core
 
 docker cp stopwords_ru.txt solonom:/opt/solr/server/solr/nom_core/conf/lang/stopwords_ru.txt
 
+      # "tokenizer": {
+      #   "class": "solr.StandardTokenizerFactory"
+      # },
+
         # {
         #   "class": "solr.PatternReplaceFilterFactory",
         #   "pattern": "\\d+",
@@ -22,7 +26,7 @@ curl -X POST -H 'Content-type:application/json' --data-binary '{
     "positionIncrementGap": "100",
     "analyzer": {
       "tokenizer": {
-        "class": "solr.StandardTokenizerFactory"
+        "class": "solr.WhitespaceTokenizerFactory"
       },
       "filters": [
          {

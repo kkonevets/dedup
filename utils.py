@@ -17,13 +17,17 @@ float_prog = re.compile(r"[-+]?\d*\.\d+|\d+", re.UNICODE)
 TransTable = str.maketrans(dict.fromkeys(r'/-()|{}:^+', ' '))
 wt = WordTokenizer()
 
-unit_lookup = {'г': 'грамм', 'грам': 'грамм', 'гр': 'грамм', 'ml': 'мл',
-               'милл': 'мл', 'млитр': 'мл', 'млтр': 'мл',
-               'ш': 'шт', 'л': 'литр', 'kg': 'кг', 'mm': 'мм', 'cm': 'см'}
+unit_lookup = {'г': 'грамм', 'грам': 'грамм', 'гр': 'грамм', 'грамм': 'грамм', 'gr': 'грамм',
+               'ml': 'мл', 'милл': 'мл', 'млитр': 'мл', 'млтр': 'мл', 'мл': 'мл',
+               'ш': 'шт', 'шт': 'шт',
+               'л': 'литр', 'литр': 'литр', 'лит': 'литр',
+               'kg': 'кг', 'кг': 'кг',
+               'mm': 'мм', 'cm': 'см', 'мм': 'мм', 'см': 'см',
+               '№': 'номер', 'ном': 'номер'}
 
 
 def normalize(sent):
-    return normalize_v1(sent)
+    return normalize_v2(sent)
 
 
 def isnum(t):
@@ -44,7 +48,10 @@ def split_unit(t):
             postfix = striped[:ix]
         else:
             postfix = striped
-        return str(float(tmp[0])), unit_lookup.get(postfix, postfix)
+
+        postfix = unit_lookup.get(postfix)
+        if postfix:
+            return str(float(tmp[0])), postfix
     return t
 
 
