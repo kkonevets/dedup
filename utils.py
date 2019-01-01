@@ -17,7 +17,7 @@ prog = re.compile("[\\W\\d]", re.UNICODE)
 
 float_prog = re.compile(r"[-+]?\d*\.\d+|\d+", re.UNICODE)
 
-TransTable = str.maketrans(dict.fromkeys(r'/-()|{}:^+\\', ' '))
+TransTable = str.maketrans(dict.fromkeys(r'/-\[\]()|{}:^+\\', ' '))
 wt = WordTokenizer()
 
 unit_lookup = {
@@ -73,9 +73,9 @@ def proceed_token(t):
 
     t = t.rstrip('ъ')
 
-    # all ascii
-    if all(ord(char) < 128 for char in t):
-        t = translit(t, 'ru')
+    # # all ascii
+    # if all(ord(char) < 128 for char in t):
+    #     t = translit(t, 'ru')
 
     tmp = t.split('х')  # russian х
     if len(tmp) == 1:
@@ -96,7 +96,7 @@ def proceed_token(t):
 def normalize_v2(sent):
     tmp = sent.translate(TransTable).lower()
     tokens = (proceed_token(t) for t in wt.tokenize(tmp, False))
-    tmp = " ".join((t for t in tokens if len(t) > 1))
+    tmp = " ".join((t for t in tokens))
     return tmp
 
 
