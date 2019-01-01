@@ -86,6 +86,7 @@ def solr_stat():
 
         # if len(positions) > 10:
         #     break
+        #
 
     positions = pd.DataFrame.from_records(positions)
     positions.columns = ['et_id', 'et_name', 'et_brand',
