@@ -8,6 +8,7 @@ from urllib.parse import quote
 import pickle
 import matplotlib
 import numpy as np
+import pandas as pd
 from collections import Counter
 
 matplotlib.use('agg')
@@ -34,7 +35,39 @@ def save_mid2et(singles):
         pickle.dump(id2et, f)
 
 
-def solr_stat():
+def sample_one(found, et, nchoices, synid):
+    np.random.seed(0)
+    df = [(et['id'],
+           synid,
+           int(el['id']),
+           el['score'],
+           int(int(el['id']) == et['srcId']),
+           -1)
+          for el in found]
+    df = pd.DataFrame.from_records(df)
+    df.columns = ['qid', 'synid', 'fid', 'score', 'target', 'ix']
+    df['score'] = df['score']/df['score'].sum()
+    df['ix'] = df.index
+
+    if len(found) > nchoices:
+        ixs = np.random.choice(df.index, nchoices + 1,
+                               replace=False, p=df['score'])
+    else:
+        ixs = df.index
+
+    samples = df.loc[ixs]
+    values = samples.values.tolist()
+    if samples['target'].max() == 0:
+        target = df[df['target'] == 1]
+        if len(target):
+            values[-1] = target.iloc[0].values.tolist()
+        else:
+            values[-1] = [et['id'], synid, et['srcId'], 0, 1, -1]
+
+    return values
+
+
+def solr_sample():
     with open('../data/1cfresh/1cfreshv4.json', 'r') as f:
         fresh = json.load(f)
         db = fresh['Database']
@@ -49,7 +82,6 @@ def solr_stat():
     nrows = 100
     nchoices = 5
 
-    np.random.seed(0)
     samples = []
 
     for et in tqdm(singles):
@@ -64,30 +96,23 @@ def solr_stat():
         met = mid2et[et['srcId']]
         mname = utils.normalize(met['name'])
 
-        names = [name] + [utils.normalize(s['name'])
-                          for s in et.get('synonyms', [])]
-        names = [n for n in names if n != mname]
+        names = [(-1, name)] + [(s['id'], utils.normalize(s['name']))
+                                for s in et.get('synonyms', [])]
+        names = [n for n in names if n[1] != mname]
 
-        for curname in names:
+        for synid, curname in names:
             text = curname + ' ' + bname
             if text.strip() == '':
                 continue
             found = query_solr(text, nrows)
 
+            if len(found):
+                samples += sample_one(found, et, nchoices, synid)
+
             rec = [et['id'], curname, bname]
             if len(found) == 0:
                 rec += [None, mname, '', -1]
                 positions.append(rec)
-
-            # p = np.array([s for s in found['score']])
-            # p /= p.sum()
-            # ids = np.array([int(el['id']) for el in found])
-            # ixs = np.random.choice(len(found), nchoices+1, replace=False, p=p)
-
-            # target = (ids == int(et['srcId'])).astype(int)
-            # if target.max():
-            #     samples += [(int(et['id']), int(found[ix]['id']), p[i])
-            #                 for i, ix in enumerate(ixs)]
 
             for i, el in enumerate(found):
                 curbcs = [int(c) for c in el.get('barcodes', [])]
@@ -100,13 +125,15 @@ def solr_stat():
                 rec += [None, mname, '', -2]
                 positions.append(rec)
 
-        # if len(positions) > 10:
+        # if len(positions) > 1:
         #     break
-        #
 
-    samples = pd.DataFrame.from_records(samples)
-    samples.columns = ['qid', 'fid', 'score', 'target']
-    samples.to_csv('../data/dedup/samples.csv', index=False)
+    samples = pd.DataFrame.from_records(samples, coerce_float=False)
+    samples.columns = ['qid', 'fid', 'score', 'target', 'ix', 'synid']
+    samples.astype({'qid': int, 'fid': int, 'target': int,
+                    'ix': int, 'synid': int}, copy=False)
+    samples.to_excel('../data/dedup/samples.xlsx',
+                     index=False, encoding='utf8')
 
     positions = pd.DataFrame.from_records(positions)
     positions.columns = ['et_id', 'et_name', 'et_brand',
@@ -141,4 +168,4 @@ def solr_stat():
 
 if __name__ == "__main__":
     pass
-    solr_stat()
+    # solr_sample()

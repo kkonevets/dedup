@@ -4,7 +4,7 @@
     "[cython]": {
         "editor.tabSize": 2
     },
-    //"sync-rsync.delete": true,
+    "sync-rsync.delete": true,
     "sync-rsync.onSave": true,
     "sync-rsync.exclude": [
         "build",
