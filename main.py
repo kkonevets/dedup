@@ -125,13 +125,11 @@ def solr_sample():
                 rec += [None, mname, '', -2]
                 positions.append(rec)
 
-        # if len(positions) > 1:
-        #     break
+        if len(positions) > 1000:
+            break
 
     samples = pd.DataFrame.from_records(samples, coerce_float=False)
-    samples.columns = ['qid', 'fid', 'score', 'target', 'ix', 'synid']
-    samples.astype({'qid': int, 'fid': int, 'target': int,
-                    'ix': int, 'synid': int}, copy=False)
+    samples.columns = ['qid', 'synid', 'fid', 'score', 'target', 'ix']
     samples.to_excel('../data/dedup/samples.xlsx',
                      index=False, encoding='utf8')
 
