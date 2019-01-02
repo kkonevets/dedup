@@ -105,7 +105,7 @@ def solr_sample():
 
     id2brand = {b['id']: b for b in db['brands']}
     positions = []
-    nrows = 300
+    nrows = 100
     nchoices = 5
 
     samples = []
