@@ -7,15 +7,15 @@ import pandas as pd
 from urllib.parse import quote
 import pickle
 import matplotlib
+import numpy as np
+from collections import Counter
 
 matplotlib.use('agg')
-
-# hi2
 
 
 def query_solr(text, rows=1, exclude=[]):
     q = 'http://c:8983/solr/nom_core/select?df=my_text_ru' \
-        '&q=%s&rows=%d' % (quote(text), rows)
+        '&q=%s&rows=%d&fl=*,score' % (quote(text), rows)
     r = urllib.request.urlopen(q).read()
     docs = json.loads(r)['response']['docs']
     return docs
@@ -47,6 +47,10 @@ def solr_stat():
     id2brand = {b['id']: b for b in db['brands']}
     positions = []
     nrows = 100
+    nchoices = 5
+
+    np.random.seed(0)
+    samples = []
 
     for et in tqdm(singles):
         bcs = set([int(c) for c in et['barcodes']])
@@ -75,6 +79,16 @@ def solr_stat():
                 rec += [None, mname, '', -1]
                 positions.append(rec)
 
+            # p = np.array([s for s in found['score']])
+            # p /= p.sum()
+            # ids = np.array([int(el['id']) for el in found])
+            # ixs = np.random.choice(len(found), nchoices+1, replace=False, p=p)
+
+            # target = (ids == int(et['srcId'])).astype(int)
+            # if target.max():
+            #     samples += [(int(et['id']), int(found[ix]['id']), p[i])
+            #                 for i, ix in enumerate(ixs)]
+
             for i, el in enumerate(found):
                 curbcs = [int(c) for c in el.get('barcodes', [])]
                 if len(bcs.intersection(curbcs)):
@@ -89,6 +103,10 @@ def solr_stat():
         # if len(positions) > 10:
         #     break
         #
+
+    samples = pd.DataFrame.from_records(samples)
+    samples.columns = ['qid', 'fid', 'score', 'target']
+    samples.to_csv('../data/dedup/samples.csv', index=False)
 
     positions = pd.DataFrame.from_records(positions)
     positions.columns = ['et_id', 'et_name', 'et_brand',

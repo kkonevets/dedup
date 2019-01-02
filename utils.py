@@ -16,8 +16,9 @@ punct_tt = str.maketrans(dict.fromkeys(chars, ' '))
 prog = re.compile("[\\W\\d]", re.UNICODE)
 
 float_prog = re.compile(r"[-+]?\d*\.\d+|\d+", re.UNICODE)
+dot_prog = re.compile(r'[xх*]', re.UNICODE)
 
-TransTable = str.maketrans(dict.fromkeys(r'/-\[\]()|{}:^+\\', ' '))
+TransTable = str.maketrans(dict.fromkeys(r'/-\[\]()|{}:^+', ' '))
 wt = WordTokenizer()
 
 unit_lookup = {
@@ -27,9 +28,8 @@ unit_lookup = {
     'тон': 'тонна', 'тн': 'тонна', 'тонна': 'тонна', 'тонн': 'тонна',
     'л': 'литр', 'литр': 'литр', 'лит': 'литр',
     'kg': 'кг', 'кг': 'кг',
-    'mm': 'мм', 'cm': 'см', 'мм': 'мм', 'см': 'см',
-    'дм': 'дм',
-    '№': 'номер', 'ном': 'номер',
+    'mm': 'мм', 'cm': 'см', 'мм': 'мм', 'см': 'см', 'дм': 'дм',
+    '№': 'номер', 'номер': 'номер',
     'ват': 'ватт', 'вт': 'ватт', 'ватт': 'ватт'}
 
 
@@ -40,8 +40,8 @@ def normalize(sent):
 def isnum(t):
     try:
         f = float(t)
-        if f.is_integer():
-            return str(int(f))
+        # if f.is_integer():
+        #     return str(int(f))
         return str(f)
     except:
         return False
@@ -59,9 +59,7 @@ def split_unit(t):
         else:
             postfix = striped
 
-        postfix = unit_lookup.get(postfix)
-        if postfix:
-            return str(float(tmp[0])), postfix
+        return str(float(tmp[0])), unit_lookup.get(postfix, postfix)
     return t
 
 
@@ -77,11 +75,11 @@ def proceed_token(t):
     # if all(ord(char) < 128 for char in t):
     #     t = translit(t, 'ru')
 
-    tmp = t.split('х')  # russian х
-    if len(tmp) == 1:
-        tmp = t.split('*')
-    if len(tmp) > 1 and all((isnum(el) for el in tmp)):
-        return 'x'.join(tmp)  # english x
+    tmp = dot_prog.split(t)
+    if len(tmp) > 1:
+        tmp = [isnum(el) for el in tmp]
+        if all(tmp):
+            return 'x'.join(tmp)  # english x
 
     tmp = split_unit(t)
     if type(tmp) == tuple:
