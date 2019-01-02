@@ -35,7 +35,7 @@ def save_mid2et(singles):
         pickle.dump(id2et, f)
 
 
-def sample_one(found, et, nchoices, synid):
+def sample_one(found, et, nchoices, prior, synid):
     np.random.seed(0)
     df = [(et['id'],
            synid,
@@ -46,25 +46,51 @@ def sample_one(found, et, nchoices, synid):
           for el in found]
     df = pd.DataFrame.from_records(df)
     df.columns = ['qid', 'synid', 'fid', 'score', 'target', 'ix']
-    df['score'] = df['score']/df['score'].sum()
     df['ix'] = df.index
+    df['score'] /= df['score'].sum()
 
     if len(found) > nchoices:
-        ixs = np.random.choice(df.index, nchoices + 1,
-                               replace=False, p=df['score'])
+        # prior index should be sorted in ascending order[-2,-1,0,1,2,3, ...]
+        assert prior.index.isin([-1, -2]).sum() == 2
+        lwidth = 2
+        rwidth = len(prior) - len(df) - lwidth
+        padded = np.pad(df['score'], (lwidth, rwidth), mode='constant')
+        # now -1 and -2 have 0 probability, see TODO below
+        p = np.dot(padded, prior)
+        p /= p.sum()
+        ixs = np.random.choice(prior.index, nchoices + 1,
+                               replace=False, p=p)
     else:
         ixs = df.index
+
+    # TODO: sample randomly from out of range
+    # out_of_range = set(ixs).intersection({-1, -2})
+    # for ix in out_of_range:
+    #     1
 
     samples = df.loc[ixs]
     values = samples.values.tolist()
     if samples['target'].max() == 0:
         target = df[df['target'] == 1]
         if len(target):
-            values[-1] = target.iloc[0].values.tolist()
+            values[0] = target.iloc[0].values.tolist()
         else:
-            values[-1] = [et['id'], synid, et['srcId'], 0, 1, -1]
+            values[0] = [et['id'], synid, et['srcId'], 0, 1, -1]
 
     return values
+
+
+def get_prior(anew=False):
+    prior_file = '../data/dedup/priors.csv'
+    if anew:
+        positions = pd.read_excel('../data/dedup/solr_positions.xlsx')
+        prior = positions['i'].value_counts()/positions.shape[0]
+        prior.sort_index(ascending=True, inplace=True)
+        prior.to_csv(prior_file)
+    else:
+        prior = pd.read_csv(prior_file, header=None, index_col=0).loc[:, 1]
+
+    return prior
 
 
 def solr_sample():
@@ -79,10 +105,11 @@ def solr_sample():
 
     id2brand = {b['id']: b for b in db['brands']}
     positions = []
-    nrows = 100
+    nrows = 300
     nchoices = 5
 
     samples = []
+    # prior = get_prior(anew=False)
 
     for et in tqdm(singles):
         bcs = set([int(c) for c in et['barcodes']])
@@ -106,8 +133,8 @@ def solr_sample():
                 continue
             found = query_solr(text, nrows)
 
-            if len(found):
-                samples += sample_one(found, et, nchoices, synid)
+            # if len(found):
+            #     samples += sample_one(found, et, nchoices, prior, synid)
 
             rec = [et['id'], curname, bname]
             if len(found) == 0:
@@ -125,13 +152,13 @@ def solr_sample():
                 rec += [None, mname, '', -2]
                 positions.append(rec)
 
-        if len(positions) > 1000:
-            break
+        # if len(positions) > 1000:
+        #     break
 
-    samples = pd.DataFrame.from_records(samples, coerce_float=False)
-    samples.columns = ['qid', 'synid', 'fid', 'score', 'target', 'ix']
-    samples.to_excel('../data/dedup/samples.xlsx',
-                     index=False, encoding='utf8')
+    # samples = pd.DataFrame.from_records(samples, coerce_float=False)
+    # samples.columns = ['qid', 'synid', 'fid', 'score', 'target', 'ix']
+    # samples.to_excel('../data/dedup/samples.xlsx',
+    #                  index=False, encoding='utf8')
 
     positions = pd.DataFrame.from_records(positions)
     positions.columns = ['et_id', 'et_name', 'et_brand',
@@ -152,7 +179,7 @@ def solr_sample():
 
     cumsum = rel2.sort_index().cumsum()
     plt.clf()
-    ax = cumsum.plot(xlim=[0, 100], ylim=[cumsum.min(), cumsum.max()],
+    ax = cumsum.plot(xlim=[0, nrows], ylim=[cumsum.min(), cumsum.max()],
                      title='SOLR found in top N', grid=True)
     fig = ax.get_figure()
     ax.set_xlabel("top N")
