@@ -69,27 +69,13 @@ X = tf.placeholder("float", [None, num_input])
 Y = tf.placeholder("float", [None, num_classes])
 
 
-# Store layers weight & bias
-weights = {
-    'h1': tf.Variable(tf.random_normal([num_input, n_hidden_1])),
-    'h2': tf.Variable(tf.random_normal([n_hidden_1, n_hidden_2])),
-    'out': tf.Variable(tf.random_normal([n_hidden_2, num_classes]))
-}
-biases = {
-    'b1': tf.Variable(tf.random_normal([n_hidden_1])),
-    'b2': tf.Variable(tf.random_normal([n_hidden_2])),
-    'out': tf.Variable(tf.random_normal([num_classes]))
-}
-
-
-# Create model
-def neural_net(x):
+def neural_net(x_dict):
     # Hidden fully connected layer with 256 neurons
-    layer_1 = tf.add(tf.matmul(x, weights['h1']), biases['b1'])
+    layer_1 = tf.layers.dense(x, n_hidden_1, activation=tf.nn.relu)
     # Hidden fully connected layer with 256 neurons
-    layer_2 = tf.add(tf.matmul(layer_1, weights['h2']), biases['b2'])
+    layer_2 = tf.layers.dense(layer_1, n_hidden_2, activation=tf.nn.relu)
     # Output fully connected layer with a neuron for each class
-    out_layer = tf.matmul(layer_2, weights['out']) + biases['out']
+    out_layer = tf.layers.dense(layer_2, num_classes)
     return out_layer
 
 
@@ -98,7 +84,7 @@ logits = neural_net(X)
 prediction = tf.nn.softmax(logits)
 
 # Define loss and optimizer
-loss_op = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
+loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
     logits=logits, labels=Y))
 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
 train_op = optimizer.minimize(loss_op)
