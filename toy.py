@@ -69,7 +69,7 @@ X = tf.placeholder("float", [None, num_input])
 Y = tf.placeholder("float", [None, num_classes])
 
 
-def neural_net(x_dict):
+def neural_net(x):
     # Hidden fully connected layer with 256 neurons
     layer_1 = tf.layers.dense(x, n_hidden_1, activation=tf.nn.relu)
     # Hidden fully connected layer with 256 neurons
