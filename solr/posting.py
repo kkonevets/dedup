@@ -1,4 +1,4 @@
-import utils
+import tools
 import json
 import io
 from tqdm import tqdm
@@ -14,11 +14,11 @@ def copy_key(src, dst, key):
 def clean_et(et):
     for k, v in et.items():
         if type(v) == str:
-            et[k] = utils.normalize(v)
+            et[k] = tools.normalize(v)
 
 
 def etalons_to_docs():
-    master = utils.load_master()
+    master = tools.load_master()
     mdb = master['Database']
 
     id2cat = {c['id']: c for c in mdb['categories']}

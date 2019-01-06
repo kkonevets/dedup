@@ -1,5 +1,5 @@
 from sklearn.feature_extraction.text import CountVectorizer
-import utils
+import tools
 import pandas as pd
 from tqdm import tqdm
 import pymongo
@@ -8,7 +8,7 @@ from pymongo import MongoClient
 
 def get_corpus(ets, total):
     for et in tqdm(ets, total=total):
-        sent = utils.normalize(et['name'])
+        sent = tools.normalize(et['name'])
         yield sent
 
 
