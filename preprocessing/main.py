@@ -35,19 +35,6 @@ def save_mid2et(singles):
         pickle.dump(id2et, f)
 
 
-def get_prior(anew=False):
-    prior_file = '../data/dedup/priors.csv'
-    if anew:
-        positions = pd.read_excel('../data/dedup/solr_positions.xlsx')
-        prior = positions['i'].value_counts()/positions.shape[0]
-        prior.sort_index(ascending=True, inplace=True)
-        prior.to_csv(prior_file)
-    else:
-        prior = pd.read_csv(prior_file, header=None, index_col=0).loc[:, 1]
-
-    return prior
-
-
 def save_positions(positions, nrows):
     positions = pd.DataFrame.from_records(positions)
     positions.columns = ['et_id', 'et_name', 'et_brand',
@@ -78,6 +65,19 @@ def save_positions(positions, nrows):
     incl = positions[positions['i'].isin([-1, -2])]
     incl['i'].value_counts()
     # pos_sort = positions.sort_values('i', ascending=False)
+
+
+def get_prior(anew=False):
+    prior_file = '../data/dedup/priors.csv'
+    if anew:
+        positions = pd.read_excel('../data/dedup/solr_positions.xlsx')
+        prior = positions['i'].value_counts()/positions.shape[0]
+        prior.sort_index(ascending=True, inplace=True)
+        prior.to_csv(prior_file)
+    else:
+        prior = pd.read_csv(prior_file, header=None, index_col=0).loc[:, 1]
+
+    return prior
 
 
 def sample_one(found, et, nchoices, prior, synid):
@@ -119,6 +119,7 @@ def sample_one(found, et, nchoices, prior, synid):
         if len(target):
             values[0] = target.iloc[0].values.tolist()
         else:
+            # target is not in the TOP
             values[0] = [et['id'], synid, et['srcId'], 0, 1, -1]
 
     return values
@@ -185,8 +186,8 @@ def solr_sample():
                 rec += [None, mname, '', -2]
                 positions.append(rec)
 
-        if len(positions) > 1000:
-            break
+        # if len(positions) > 1000:
+        #     break
 
     samples = np.array(samples)
     columns = ['qid', 'synid', 'fid', 'score', 'target', 'ix']
