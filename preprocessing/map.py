@@ -8,24 +8,28 @@ from pymongo import MongoClient
 
 def get_corpus(ets, total):
     for et in tqdm(ets, total=total):
-        sent = tools.normalize(et['name'])
-        yield sent
+        yield et
 
 
 def main():
     client = MongoClient()
     db = client['master']
 
-    ets = db.etalons.find({}, projection=['name'],
+    brands = db.brands.find({}, projection=['_id', 'name'],
+                            no_cursor_timeout=True)
+
+    brands = list(get_corpus(brands, db.brands.count_documents({})))
+
+    ets = db.etalons.find({}, projection=['_id', 'name', 'brandId', 'synonyms'],
                           no_cursor_timeout=True)
+    ets = list(get_corpus(ets, db.etalons.count_documents({})))
 
-    # total = db.etalons.count_documents({})
-    # corpus = list(get_corpus(ets, total))
-    # utils.do_pickle(corpus, '../data/dedup/corpus.pkl')
-    corpus = utils.do_unpickle('../data/dedup/corpus.pkl')
+    tools.do_pickle([ets, brands], '../data/dedup/master_ets_brands.pkl')
 
-    vec = CountVectorizer().fit(corpus)
-    bag_of_words = vec.transform(corpus)
+    ets, brands = tools.do_unpickle('../data/dedup/master_ets_brands.pkl')
+
+    vec = CountVectorizer().fit((e['name'] for e in ets))
+    bag_of_words = vec.transform((e['name'] for e in ets))
     sum_words = bag_of_words.sum(axis=0)
     words_freq = [(word, sum_words[0, idx])
                   for word, idx in vec.vocabulary_.items()]

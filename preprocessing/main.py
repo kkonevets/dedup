@@ -80,6 +80,24 @@ def get_prior(anew=False):
     return prior
 
 
+def append_position(positions, found, et, curname, mname, bname, bcs):
+    rec = [et['id'], curname, bname]
+    if len(found) == 0:
+        rec += [None, mname, '', -1]
+        positions.append(rec)
+
+    for i, el in enumerate(found):
+        curbcs = [int(c) for c in el.get('barcodes', [])]
+        if len(bcs.intersection(curbcs)):
+            rec += [int(el['id']), el['name'], el.get('brand', ''), i]
+            positions.append(rec)
+            break
+
+    if len(rec) == 3:
+        rec += [None, mname, '', -2]
+        positions.append(rec)
+
+
 def sample_one(found, et, nchoices, prior, synid):
     df = [(et['id'],
            synid,
@@ -170,21 +188,7 @@ def solr_sample():
             if len(found):
                 samples += sample_one(found, et, nchoices, prior, synid)
 
-            rec = [et['id'], curname, bname]
-            if len(found) == 0:
-                rec += [None, mname, '', -1]
-                positions.append(rec)
-
-            for i, el in enumerate(found):
-                curbcs = [int(c) for c in el.get('barcodes', [])]
-                if len(bcs.intersection(curbcs)):
-                    rec += [int(el['id']), el['name'], el.get('brand', ''), i]
-                    positions.append(rec)
-                    break
-
-            if len(rec) == 3:
-                rec += [None, mname, '', -2]
-                positions.append(rec)
+            append_position(positions, found, et, curname, mname, bname, bcs)
 
         # if len(positions) > 1000:
         #     break
