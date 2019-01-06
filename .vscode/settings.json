@@ -1,6 +1,14 @@
 {
+    "explorer.confirmDelete": false,
+    "cmake.configureOnOpen": true,
+    "editor.minimap.enabled": false,
     "python.pythonPath": "/usr/local/bin/python3",
     "editor.formatOnSave": true,
+    "files.exclude": {
+        "__pycache__": true
+    },
+    "workbench.colorTheme": "Default Light+",
+    "explorer.confirmDragAndDrop": false,
     "[cython]": {
         "editor.tabSize": 2
     },
