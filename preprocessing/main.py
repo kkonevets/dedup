@@ -185,13 +185,16 @@ def solr_sample():
                 rec += [None, mname, '', -2]
                 positions.append(rec)
 
-        # if len(positions) > 1000:
-        #     break
+        if len(positions) > 1000:
+            break
 
-    samples = pd.DataFrame.from_records(samples, coerce_float=False)
-    samples.columns = ['qid', 'synid', 'fid', 'score', 'target', 'ix']
-    samples.to_excel('../data/dedup/samples.xlsx',
-                     index=False, encoding='utf8')
+    samples = np.array(samples)
+    columns = ['qid', 'synid', 'fid', 'score', 'target', 'ix']
+    np.savez('../data/dedup/samples.npz', samples=samples, columns=columns)
+
+    # npzfile = np.load('../data/dedup/samples.npz')
+    # samples = npzfile['samples']
+    # columns = npzfile['columns']
 
     # save_positions(positions)
 
