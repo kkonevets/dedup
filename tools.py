@@ -7,7 +7,6 @@ import os
 from textblob.tokenizers import WordTokenizer
 import string
 from nltk.stem.snowball import SnowballStemmer
-from transliterate import translit
 
 # from tokenizer import tokenize
 
@@ -33,13 +32,14 @@ unit_lookup = {
     '№': 'номер', 'номер': 'номер',
     'ват': 'ватт', 'вт': 'ватт', 'ватт': 'ватт'}
 
-stemmer = SnowballStemmer("russian")
+stemmer = SnowballStemmer("russian", ignore_stopwords=True)
 
 
 def normalize(sent, stem=False):
-    sent = normalize_v2(sent)
+    tokens = normalize_v2(sent)
     if stem:
-        sent = ' '.join((stemmer.stem(w) for w in sent.split()))
+        tokens = (stemmer.stem(t) for t in tokens)
+    sent = " ".join((t for t in tokens))
     return sent
 
 
@@ -100,8 +100,7 @@ def proceed_token(t):
 def normalize_v2(sent):
     tmp = sent.translate(TransTable).lower()
     tokens = (proceed_token(t) for t in wt.tokenize(tmp, False))
-    tmp = " ".join((t for t in tokens))
-    return tmp
+    return tokens
 
 
 def normalize_v1(sent):
@@ -156,3 +155,65 @@ def do_unpickle(fname):
     with open(fname, 'rb') as f:
         data = pickle.load(f)
     return data
+
+
+class Updater:
+    def __init__(self, master):
+        self.ets = []
+        self.id2cat, self.cat2id, self.id2man, \
+            self.man2id, self.brand2id, \
+            self.id2et, self.ftr2id, \
+            self.id2brand, self.id2clr, self.fval2id = [dict()] * 10
+
+        self.db = master['Database']
+        if type(self.db) == list:
+            self.db = self.db[0]
+        self.tags = {'etalons': 'ets',
+                     'features': 'ftrs',
+                     'categories': 'cats',
+                     'featureValues': 'fvals',
+                     'brands': 'brands',
+                     'subBrands': 'subBrands',
+                     'goodTypes': 'goodTypes',
+                     'manufacturers': 'mans',
+                     'suppliers': 'sups',
+                     'units': 'units',
+                     'classifiers': 'clrs'}
+
+        self.attr_cols = ['barcodes', 'synonyms', 'manufacturerId', 'comment',
+                          'brandId', 'description', 'manufacturerCode',
+                          'source', 'srcId', 'unitName', 'classifiers',
+                          'weight', 'volume', 'length', 'nameShort',
+                          'unitOKEI', 'vat', 'area', 'subBrandId',
+                          'goodTypeId', 'supplierId']
+
+        for k, v in self.tags.items():
+            setattr(self, v, self.db.get(k, {}))
+
+        for k, v in self.tags.items():
+            ltag = 'name' if v in {'units', 'clrs'} else 'id'
+            name = 'id2' + v.rstrip('s')
+            setattr(self, name, self.get_dict(getattr(self, v), ltag))
+
+        for k, v in self.tags.items():
+            if v in {'units', 'clrs'}:
+                continue
+            elif v == 'fvals':
+                ltag = 'value'
+            elif v == 'ftrs':
+                ltag = 'name'
+            name = v.rstrip('s') + '2id'
+            setattr(self, name, self.get_dict(getattr(self, v), ltag, 'id'))
+
+    @staticmethod
+    def get_dict(array, ltag, rtag=None):
+        if not array:
+            return None
+        elif rtag:
+            return {el[ltag]: el[rtag] for el in array if ltag in el}
+        else:
+            return {el[ltag]: el for el in array if ltag in el}
+
+
+def constitute_text(name, et, up):
+    1

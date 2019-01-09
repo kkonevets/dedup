@@ -1,4 +1,3 @@
-from sklearn.feature_extraction.text import CountVectorizer
 import tools
 import json
 import pandas as pd
@@ -9,6 +8,7 @@ from pymongo import MongoClient
 import io
 from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import CountVectorizer
 
 
 def get_corpus(ets, total):
@@ -22,7 +22,6 @@ def dump_data():
 
     brands = db.brands.find({}, projection=['_id', 'name'],
                             no_cursor_timeout=True)
-
     brands = list(get_corpus(brands, db.brands.count_documents({})))
 
     ets = db.etalons.find({}, projection=['_id', 'name', 'brandId', 'synonyms'],
@@ -64,10 +63,8 @@ def get_tfidf():
     '''
     with open('../data/1cfresh/1cfreshv4.json', 'r') as f:
         fresh = json.load(f)
-        fdb = fresh['Database']
-        fid2et = {e['id']: e for e in fdb['etalons']}
-        fid2brand = {b['id']: b for b in fdb['brands']}
-        sid2info = {s['id']: (s['name'], e.get('brandId')) for e in fdb['etalons']
+        fup = tools.Updater(fresh)
+        sid2info = {s['id']: (s['name'], e.get('brandId')) for e in fup.ets
                     for s in e.get('synonyms', [])}
 
     ets, brands = tools.do_unpickle('../data/dedup/master_ets_brands.pkl')
@@ -81,17 +78,16 @@ def get_tfidf():
         for _id in tqdm(sids):
             text, bid = sid2info[_id]
             if bid:
-                brand = fid2brand[bid]
-                text += ' ' + brand['name']
+                text += ' ' + fup.id2brand[bid]['name']
             yield tools.normalize(text, True)
 
         subdf = train_samples[train_samples['synid'] == -1]
         for _id in tqdm(subdf['qid'].unique()):
-            et = fid2et[_id]
+            et = fup.id2et[_id]
             text = et['name']
             bid = et.get('brandId')
             if bid:
-                brand = fid2brand[bid]
+                brand = fup.id2brand[bid]
                 text += ' ' + brand['name']
 
             yield tools.normalize(text, True)
@@ -110,7 +106,7 @@ def get_tfidf():
     tools.do_pickle(model, '../data/dedup/tfidf_model.pkl')
 
     sent = 'молоко пастеризованное домик в деревне'
-    model.transform(tools.normalize(sent, True))
+    model.transform([tools.normalize(sent, True)])
 
 
 if __name__ == "__main__":

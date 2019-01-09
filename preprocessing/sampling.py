@@ -147,14 +147,14 @@ def sample_one(found, et, nchoices, prior, synid):
 def solr_sample():
     with open('../data/1cfresh/1cfreshv4.json', 'r') as f:
         fresh = json.load(f)
-        db = fresh['Database']
-        singles = [et for et in db['etalons'] if '#single' in et['comment']]
+        fup = tools.Updater(fresh)
+        singles = [et for et in fup.db['etalons']
+                   if '#single' in et['comment']]
 
     # save_mid2et(singles)
     with open('../data/dedup/mid2et.pkl', 'rb') as f:
         mid2et = pickle.load(f)
 
-    id2brand = {b['id']: b for b in db['brands']}
     positions = []
     nrows = 100
     nchoices = 5
@@ -169,7 +169,7 @@ def solr_sample():
         bid = et.get('brandId')
         bname = ''
         if bid:
-            bname = tools.normalize(id2brand[bid]['name'])
+            bname = tools.normalize(fup.id2brand[bid]['name'])
 
         name = tools.normalize(et['name'])
 
