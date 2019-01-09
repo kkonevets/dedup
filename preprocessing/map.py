@@ -94,8 +94,8 @@ def get_tfidf():
     model = vectorizer.fit(corpus())
     tools.do_pickle(model, '../data/dedup/tfidf_model.pkl')
 
-    sent = 'молоко пастеризованное домик в деревне'
-    model.transform([tools.normalize(sent, True)])
+    # sent = 'молоко пастеризованное домик в деревне'
+    # model.transform([tools.normalize(sent, True)])
 
 
 if __name__ == "__main__":
