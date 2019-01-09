@@ -195,8 +195,7 @@ def solr_sample():
     # npzfile = np.load('../data/dedup/samples.npz')
     # samples = npzfile['samples']
     samples = np.array(samples)
-    columns = ['qid', 'synid', 'fid', 'score', 'target', 'ix']
-    np.savez('../data/dedup/samples.npz', samples=samples, columns=columns)
+    columns = ['qid', 'synid', 'fid', 'score', 'target', 'ix']  # , 'train'
 
     samples = pd.DataFrame(samples)
     samples.columns = columns
@@ -204,13 +203,10 @@ def solr_sample():
     qids_train, qids_test = train_test_split(
         qids, test_size=0.33, random_state=42)
 
-    train_samples = samples[samples['qid'].isin(qids_train)]
-    test_samples = samples[samples['qid'].isin(qids_test)]
-    columns = ['qid', 'synid', 'fid', 'score', 'target', 'ix']
-    np.savez('../data/dedup/train_samples.npz',
-             samples=train_samples, columns=columns)
-    np.savez('../data/dedup/test_samples.npz',
-             samples=test_samples, columns=columns)
+    samples['train'] = samples['qid'].isin(qids_train).astype(int)
+
+    np.savez('../data/dedup/samples.npz',
+             samples=samples.values, columns=samples.columns)
 
     # save_positions(positions)
 

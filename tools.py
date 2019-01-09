@@ -2,6 +2,8 @@ from glob import glob
 import json
 import re
 import pickle
+import pandas as pd
+import numpy as np
 import zipfile
 import os
 from textblob.tokenizers import WordTokenizer
@@ -221,3 +223,10 @@ def constitute_text(name, et, up):
     if bid:
         text += up.id2brand[bid]['name']
     return text
+
+
+def load_samples(filename):
+    npzfile = np.load(filename)
+    samples = pd.DataFrame(npzfile['samples'])
+    samples.columns = npzfile['columns']
+    return samples

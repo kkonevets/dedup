@@ -7,6 +7,7 @@ import pymongo
 from pymongo import MongoClient
 import io
 from nltk.corpus import stopwords
+from collections import Counter
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.feature_extraction.text import CountVectorizer
 
@@ -68,30 +69,46 @@ def get_tfidf():
                   for s in e.get('synonyms', [])}
 
     upm = tools.load_master()
-    npzfile = np.load('../data/dedup/train_samples.npz')
-    train_samples = pd.DataFrame(npzfile['samples'])
-    train_samples.columns = npzfile['columns']
+    samples = tools.load_samples('../data/dedup/samples.npz')
 
-    def corpus():
-        sids = {_id for _id in train_samples['synid'].unique() if _id != -1}
-        for _id in tqdm(sids):
-            name, et = sid2et[_id]
-            text = tools.constitute_text(name, et, fup)
-            yield tools.normalize(text, True)
+    corpus_file = '../data/dedup/corpus.npz'
 
-        subdf = train_samples[train_samples['synid'] == -1]
-        for _id in tqdm(subdf['qid'].unique()):
+    def make_corpus():
+        corpus = []
+
+        subdf = samples[samples['synid'] == -1]
+        subdf = subdf[['qid', 'train']].drop_duplicates()
+        for _id, train in tqdm(subdf.values):
             et = fup.id2et[_id]
             text = tools.constitute_text(et['name'], et, fup)
-            yield tools.normalize(text, True)
+            corpus.append((_id, None, None, train,
+                           tools.normalize(text, True)))
+
+        subdf = samples[samples['synid'] != -1]
+        subdf = subdf[['synid', 'train']].drop_duplicates()
+        for _id, train in tqdm(subdf.values):
+            name, et = sid2et[_id]
+            text = tools.constitute_text(name, et, fup)
+            corpus.append((None, _id, None, train,
+                           tools.normalize(text, True)))
 
         for et in tqdm(upm.ets):
             text = tools.constitute_text(et['name'], et, upm)
-            yield tools.normalize(text, True)
+            corpus.append((None, None, et['id'], None,
+                           tools.normalize(text, True)))
+
+        corpus = np.array(corpus)
+        columns = ['qid', 'synid', 'fid', 'train', 'text']
+        np.savez(corpus_file, samples=corpus, columns=columns)
+
+    make_corpus()
+    corpus = tools.load_samples(corpus_file)
+    corpus = corpus[corpus['train'] != 0]
+    corpus = corpus['text'].values
 
     vectorizer = TfidfVectorizer(
         stop_words=get_stop_words(), token_pattern=r"(?u)\S+")
-    model = vectorizer.fit(corpus())
+    model = vectorizer.fit(corpus)
     tools.do_pickle(model, '../data/dedup/tfidf_model.pkl')
 
     # sent = 'молоко пастеризованное домик в деревне'
