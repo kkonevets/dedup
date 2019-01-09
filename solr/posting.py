@@ -18,14 +18,13 @@ def clean_et(et):
 
 
 def etalons_to_docs():
-    master = tools.load_master()
-    mdb = master['Database']
+    upm = tools.load_master()
 
-    id2cat = {c['id']: c for c in mdb['categories']}
-    id2brand = {c['id']: c for c in mdb['brands']}
+    id2cat = {c['id']: c for c in upm.cats}
+    id2brand = {c['id']: c for c in upm.brands}
 
     ets = []
-    for et in tqdm(mdb['etalons']):
+    for et in tqdm(upm.ets):
         cid = et['categoryId']
 
         new_et = {

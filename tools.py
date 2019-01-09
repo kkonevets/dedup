@@ -143,7 +143,7 @@ def load_master():
             data = json.loads(text.decode("utf-8"))
         do_pickle(data, dir_name + 'master.pkl')
     print('master loaded')
-    return data
+    return Updater(data)
 
 
 def do_pickle(data, fname):
@@ -216,4 +216,8 @@ class Updater:
 
 
 def constitute_text(name, et, up):
-    1
+    text = name
+    bid = et.get('brandId')
+    if bid:
+        text += up.id2brand[bid]['name']
+    return text

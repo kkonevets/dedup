@@ -25,10 +25,9 @@ def query_solr(text, rows=1, exclude=[]):
 
 def save_mid2et(singles):
     sids = {et['srcId'] for et in singles}
-    master = tools.load_master()
-    mdb = master['Database']
+    upm = tools.load_master()
     id2et = {}
-    for et in mdb['etalons']:
+    for et in upm.ets:
         if et['id'] in sids:
             id2et[et['id']] = et
 
@@ -148,8 +147,7 @@ def solr_sample():
     with open('../data/1cfresh/1cfreshv4.json', 'r') as f:
         fresh = json.load(f)
         fup = tools.Updater(fresh)
-        singles = [et for et in fup.db['etalons']
-                   if '#single' in et['comment']]
+        singles = [et for et in fup.ets if '#single' in et['comment']]
 
     # save_mid2et(singles)
     with open('../data/dedup/mid2et.pkl', 'rb') as f:

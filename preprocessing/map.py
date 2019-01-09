@@ -64,11 +64,10 @@ def get_tfidf():
     with open('../data/1cfresh/1cfreshv4.json', 'r') as f:
         fresh = json.load(f)
         fup = tools.Updater(fresh)
-        sid2info = {s['id']: (s['name'], e.get('brandId')) for e in fup.ets
-                    for s in e.get('synonyms', [])}
+        sid2et = {s['id']: (s['name'], e) for e in fup.ets
+                  for s in e.get('synonyms', [])}
 
-    ets, brands = tools.do_unpickle('../data/dedup/master_ets_brands.pkl')
-    id2brand = {b['_id']: b for b in brands}
+    upm = tools.load_master()
     npzfile = np.load('../data/dedup/train_samples.npz')
     train_samples = pd.DataFrame(npzfile['samples'])
     train_samples.columns = npzfile['columns']
@@ -76,28 +75,18 @@ def get_tfidf():
     def corpus():
         sids = {_id for _id in train_samples['synid'].unique() if _id != -1}
         for _id in tqdm(sids):
-            text, bid = sid2info[_id]
-            if bid:
-                text += ' ' + fup.id2brand[bid]['name']
+            name, et = sid2et[_id]
+            text = tools.constitute_text(name, et, fup)
             yield tools.normalize(text, True)
 
         subdf = train_samples[train_samples['synid'] == -1]
         for _id in tqdm(subdf['qid'].unique()):
             et = fup.id2et[_id]
-            text = et['name']
-            bid = et.get('brandId')
-            if bid:
-                brand = fup.id2brand[bid]
-                text += ' ' + brand['name']
-
+            text = tools.constitute_text(et['name'], et, fup)
             yield tools.normalize(text, True)
 
-        for et in tqdm(ets):
-            text = et['name']
-            bid = et.get('brandId')
-            if bid:
-                text += ' ' + id2brand[bid]['name']
-
+        for et in tqdm(upm.ets):
+            text = tools.constitute_text(et['name'], et, upm)
             yield tools.normalize(text, True)
 
     vectorizer = TfidfVectorizer(
