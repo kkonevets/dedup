@@ -6,6 +6,7 @@ import zipfile
 import os
 from textblob.tokenizers import WordTokenizer
 import string
+from nltk.stem.snowball import SnowballStemmer
 from transliterate import translit
 
 # from tokenizer import tokenize
@@ -32,9 +33,14 @@ unit_lookup = {
     '№': 'номер', 'номер': 'номер',
     'ват': 'ватт', 'вт': 'ватт', 'ватт': 'ватт'}
 
+stemmer = SnowballStemmer("russian")
 
-def normalize(sent):
-    return normalize_v2(sent)
+
+def normalize(sent, stem=False):
+    sent = normalize_v2(sent)
+    if stem:
+        sent = ' '.join((stemmer.stem(w) for w in sent.split()))
+    return sent
 
 
 def isnum(t):

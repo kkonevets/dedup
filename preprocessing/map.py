@@ -77,21 +77,13 @@ def get_tfidf():
     train_samples.columns = npzfile['columns']
 
     def corpus():
-        for et in tqdm(ets):
-            text = et['name']
-            bid = et.get('brandId')
-            if bid:
-                text += ' ' + id2brand[bid]['name']
-            text = tools.normalize(text)
-            yield tools.normalize(text)
-
-        sids = np.delete(train_samples['synid'].unique(), -1)
+        sids = {_id for _id in train_samples['synid'].unique() if _id != -1}
         for _id in tqdm(sids):
             text, bid = sid2info[_id]
             if bid:
                 brand = fid2brand[bid]
                 text += ' ' + brand['name']
-                yield tools.normalize(text)
+            yield tools.normalize(text, True)
 
         subdf = train_samples[train_samples['synid'] == -1]
         for _id in tqdm(subdf['qid'].unique()):
@@ -101,12 +93,24 @@ def get_tfidf():
             if bid:
                 brand = fid2brand[bid]
                 text += ' ' + brand['name']
-                yield tools.normalize(text)
+
+            yield tools.normalize(text, True)
+
+        for et in tqdm(ets):
+            text = et['name']
+            bid = et.get('brandId')
+            if bid:
+                text += ' ' + id2brand[bid]['name']
+
+            yield tools.normalize(text, True)
 
     vectorizer = TfidfVectorizer(
         stop_words=get_stop_words(), token_pattern=r"(?u)\S+")
     model = vectorizer.fit(corpus())
     tools.do_pickle(model, '../data/dedup/tfidf_model.pkl')
+
+    sent = 'молоко пастеризованное домик в деревне'
+    model.transform(tools.normalize(sent, True))
 
 
 if __name__ == "__main__":
@@ -121,3 +125,5 @@ if __name__ == "__main__":
     # vectorizer = TfidfVectorizer(token_pattern=r"(?u)\S+")
     # X = vectorizer.fit_transform(corpus)
     # print(vectorizer.get_feature_names())
+
+    1
