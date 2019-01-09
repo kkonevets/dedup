@@ -10,6 +10,7 @@ import matplotlib
 import numpy as np
 import pandas as pd
 from collections import Counter
+from sklearn.model_selection import train_test_split
 
 matplotlib.use('agg')
 
@@ -193,13 +194,25 @@ def solr_sample():
         # if len(positions) > 1000:
         #     break
 
+    # npzfile = np.load('../data/dedup/samples.npz')
+    # samples = npzfile['samples']
     samples = np.array(samples)
     columns = ['qid', 'synid', 'fid', 'score', 'target', 'ix']
     np.savez('../data/dedup/samples.npz', samples=samples, columns=columns)
 
-    # npzfile = np.load('../data/dedup/samples.npz')
-    # samples = npzfile['samples']
-    # columns = npzfile['columns']
+    samples = pd.DataFrame(samples)
+    samples.columns = columns
+    qids = samples['qid'].unique()
+    qids_train, qids_test = train_test_split(
+        qids, test_size=0.33, random_state=42)
+
+    train_samples = samples[samples['qid'].isin(qids_train)]
+    test_samples = samples[samples['qid'].isin(qids_test)]
+    columns = ['qid', 'synid', 'fid', 'score', 'target', 'ix']
+    np.savez('../data/dedup/train_samples.npz',
+             samples=train_samples, columns=columns)
+    np.savez('../data/dedup/test_samples.npz',
+             samples=test_samples, columns=columns)
 
     # save_positions(positions)
 
