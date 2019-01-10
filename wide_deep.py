@@ -1,11 +1,17 @@
 from collections import Counter
-import os
-import scipy
-from tqdm import tqdm
-import tools
 import tensorflow as tf
-import numpy as np
-import pandas as pd
+
+#########################################################################
+
+learning_rate = 0.1
+batch_size = 128
+display_step = 100
+
+train_path = '../data/dedup/train.tfrecord'
+test_path = '../data/dedup/test.tfrecord'
+vocab_file = '../data/dedup/vocab.txt'
+
+#########################################################################
 
 
 def _parse_function(record):
@@ -56,19 +62,13 @@ def _input_fn(input_filenames, batch_size=128, num_epochs=1, shuffle=True, seed=
     features, labels = ds.make_one_shot_iterator().get_next()
     return features, labels
 
-
 #########################################################################
 
-learning_rate = 0.1
-batch_size = 128
-display_step = 100
-
-#########################################################################
 
 q_terms_feature_column = tf.feature_column.categorical_column_with_vocabulary_file(
-    key="q_terms", vocabulary_file='../data/dedup/vocab.txt')
+    "q_terms", vocab_file)
 d_terms_feature_column = tf.feature_column.categorical_column_with_vocabulary_file(
-    key="d_terms", vocabulary_file='../data/dedup/vocab.txt')
+    "d_terms", vocab_file)
 wide_columns = [q_terms_feature_column,  d_terms_feature_column]
 
 classifier = tf.estimator.LinearClassifier(
@@ -85,22 +85,21 @@ classifier = tf.estimator.LinearClassifier(
 
 classifier.train(
     input_fn=lambda: _input_fn(
-        '../data/dedup/train.tfrecord', batch_size=128, num_epochs=1),
+        train_path, batch_size=batch_size, num_epochs=1),
 )
 
 #########################################################################
 
 evaluation_metrics = classifier.evaluate(
-    input_fn=lambda: _input_fn(train=True, num_epochs=1),
-    steps=1000)
+    input_fn=lambda: _input_fn(
+        train_path, batch_size=batch_size, num_epochs=1))
 print("\nTraining set metrics:")
 for m in evaluation_metrics:
     print(m, evaluation_metrics[m])
 print("---")
 
 evaluation_metrics = classifier.evaluate(
-    input_fn=lambda: _input_fn(train=False, num_epochs=1),
-    steps=1000)
+    input_fn=lambda: _input_fn(test_path, batch_size=batch_size, num_epochs=1))
 
 print("\nTest set metrics:")
 for m in evaluation_metrics:
