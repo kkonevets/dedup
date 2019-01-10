@@ -83,7 +83,7 @@ classifier = tf.estimator.LinearClassifier(
 
 classifier.train(
     input_fn=lambda: _input_fn(
-        train_path, batch_size=batch_size, num_epochs=10),
+        train_path, batch_size=batch_size, num_epochs=100),
 )
 
 #########################################################################
