@@ -1,11 +1,8 @@
-from collections import Counter
 import tensorflow as tf
 
 #########################################################################
 
-learning_rate = 0.1
 batch_size = 128
-display_step = 100
 
 train_path = '../data/dedup/train.tfrecord'
 test_path = '../data/dedup/test.tfrecord'
@@ -73,19 +70,20 @@ wide_columns = [q_terms_feature_column,  d_terms_feature_column]
 
 classifier = tf.estimator.LinearClassifier(
     feature_columns=wide_columns,
-    optimizer=tf.train.FtrlOptimizer(
-        learning_rate=learning_rate,
-        # l1_regularization_strength=10.0,
-        # l2_regularization_strength=0.0
-    ),
-    #     model_dir="./model/wide"
+    # optimizer=lambda: tf.train.FtrlOptimizer(
+    #     learning_rate=tf.train.exponential_decay(
+    #         learning_rate=0.1,
+    #         global_step=tf.train.get_global_step(),
+    #         decay_steps=10000,
+    #         decay_rate=0.96)),
+    # model_dir="./model/wide"
 )
 
 #########################################################################
 
 classifier.train(
     input_fn=lambda: _input_fn(
-        train_path, batch_size=batch_size, num_epochs=1),
+        train_path, batch_size=batch_size, num_epochs=10),
 )
 
 #########################################################################
@@ -98,10 +96,10 @@ for m in evaluation_metrics:
     print(m, evaluation_metrics[m])
 print("---")
 
-evaluation_metrics = classifier.evaluate(
-    input_fn=lambda: _input_fn(test_path, batch_size=batch_size, num_epochs=1))
+# evaluation_metrics = classifier.evaluate(
+#     input_fn=lambda: _input_fn(test_path, batch_size=batch_size, num_epochs=1))
 
-print("\nTest set metrics:")
-for m in evaluation_metrics:
-    print(m, evaluation_metrics[m])
-print("---")
+# print("\nTest set metrics:")
+# for m in evaluation_metrics:
+#     print(m, evaluation_metrics[m])
+# print("---")
