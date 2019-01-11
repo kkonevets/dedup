@@ -70,12 +70,10 @@ wide_columns = [q_terms_feature_column,  d_terms_feature_column]
 
 classifier = tf.estimator.LinearClassifier(
     feature_columns=wide_columns,
-    # optimizer=lambda: tf.train.FtrlOptimizer(
-    #     learning_rate=tf.train.exponential_decay(
-    #         learning_rate=0.1,
-    #         global_step=tf.train.get_global_step(),
-    #         decay_steps=10000,
-    #         decay_rate=0.96)),
+    # optimizer=tf.train.FtrlOptimizer(
+    #     learning_rate=0.9,
+    #     # l1_regularization_strength=0.001
+    # ),
     # model_dir="./model/wide"
 )
 
@@ -83,7 +81,7 @@ classifier = tf.estimator.LinearClassifier(
 
 classifier.train(
     input_fn=lambda: _input_fn(
-        train_path, batch_size=batch_size, num_epochs=100),
+        train_path, batch_size=batch_size, num_epochs=5),
 )
 
 #########################################################################
@@ -96,10 +94,10 @@ for m in evaluation_metrics:
     print(m, evaluation_metrics[m])
 print("---")
 
-# evaluation_metrics = classifier.evaluate(
-#     input_fn=lambda: _input_fn(test_path, batch_size=batch_size, num_epochs=1))
+evaluation_metrics = classifier.evaluate(
+    input_fn=lambda: _input_fn(test_path, batch_size=batch_size, num_epochs=1))
 
-# print("\nTest set metrics:")
-# for m in evaluation_metrics:
-#     print(m, evaluation_metrics[m])
-# print("---")
+print("\nTest set metrics:")
+for m in evaluation_metrics:
+    print(m, evaluation_metrics[m])
+print("---")
