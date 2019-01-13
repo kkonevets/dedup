@@ -3,6 +3,7 @@ import tensorflow as tf
 #########################################################################
 
 batch_size = 128
+embedding_dim = 100
 
 train_path = '../data/dedup/train.tfrecord'
 test_path = '../data/dedup/test.tfrecord'
@@ -68,14 +69,32 @@ d_terms_feature_column = tf.feature_column.categorical_column_with_vocabulary_fi
     "d_terms", vocab_file)
 wide_columns = [q_terms_feature_column,  d_terms_feature_column]
 
-classifier = tf.estimator.LinearClassifier(
-    feature_columns=wide_columns,
-    # optimizer=tf.train.FtrlOptimizer(
-    #     learning_rate=0.9,
-    #     # l1_regularization_strength=0.001
-    # ),
-    # model_dir="./model/wide"
+q_terms_embedding_column = tf.feature_column.embedding_column(
+    q_terms_feature_column, dimension=embedding_dim)
+d_terms_embedding_column = tf.feature_column.embedding_column(
+    d_terms_feature_column, dimension=embedding_dim)
+
+deep_columns = [q_terms_embedding_column, d_terms_embedding_column]
+
+my_optimizer = tf.train.AdagradOptimizer(learning_rate=0.1)
+my_optimizer = tf.contrib.estimator.clip_gradients_by_norm(my_optimizer, 5.0)
+
+classifier = tf.estimator.DNNClassifier(
+    feature_columns=deep_columns,
+    hidden_units=[200, 200],
+    optimizer=my_optimizer,
+    model_dir="./model/deep"
 )
+
+
+# classifier = tf.estimator.LinearClassifier(
+#     feature_columns=wide_columns,
+#     # optimizer=tf.train.FtrlOptimizer(
+#     #     learning_rate=0.9,
+#     #     # l1_regularization_strength=0.001
+#     # ),
+#     # model_dir="./model/wide"
+# )
 
 #########################################################################
 
@@ -94,10 +113,10 @@ for m in evaluation_metrics:
     print(m, evaluation_metrics[m])
 print("---")
 
-evaluation_metrics = classifier.evaluate(
-    input_fn=lambda: _input_fn(test_path, batch_size=batch_size, num_epochs=1))
+# evaluation_metrics = classifier.evaluate(
+#     input_fn=lambda: _input_fn(test_path, batch_size=batch_size, num_epochs=1))
 
-print("\nTest set metrics:")
-for m in evaluation_metrics:
-    print(m, evaluation_metrics[m])
-print("---")
+# print("\nTest set metrics:")
+# for m in evaluation_metrics:
+#     print(m, evaluation_metrics[m])
+# print("---")
