@@ -17,7 +17,8 @@
     "sync-rsync.onSave": true,
     "sync-rsync.exclude": [
         "build",
-        "*.so"
+        "*.so",
+        "model"
     ],
     "sync-rsync.sites": [
         {

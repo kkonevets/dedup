@@ -4,6 +4,13 @@ import tensorflow as tf
 
 batch_size = 128
 embedding_dim = 100
+num_epochs = 20
+epochs_between_evals = 5
+
+epochs = (num_epochs//epochs_between_evals)*[epochs_between_evals]
+mod = num_epochs % epochs_between_evals
+if mod:
+    epochs += [mod]
 
 train_path = '../data/dedup/train.tfrecord'
 test_path = '../data/dedup/test.tfrecord'
@@ -81,11 +88,10 @@ my_optimizer = tf.contrib.estimator.clip_gradients_by_norm(my_optimizer, 5.0)
 
 classifier = tf.estimator.DNNClassifier(
     feature_columns=deep_columns,
-    hidden_units=[200, 200],
+    hidden_units=[200, 100],
     optimizer=my_optimizer,
     model_dir="./model/deep"
 )
-
 
 # classifier = tf.estimator.LinearClassifier(
 #     feature_columns=wide_columns,
@@ -98,25 +104,31 @@ classifier = tf.estimator.DNNClassifier(
 
 #########################################################################
 
-classifier.train(
-    input_fn=lambda: _input_fn(
-        train_path, batch_size=batch_size, num_epochs=5),
-)
+
+def do_eval(name):
+    path = train_path if name == 'train' else test_path
+    evaluation_metrics = classifier.evaluate(
+        input_fn=lambda: _input_fn(
+            path, batch_size=batch_size, num_epochs=1),
+        name=name
+    )
+    print("\n%s set metrics:" % name.upper())
+    for m in evaluation_metrics:
+        print(m, evaluation_metrics[m])
+    print("---")
+
+
+for nep in epochs:
+    tf.logging.set_verbosity(tf.logging.INFO)
+    classifier.train(
+        input_fn=lambda: _input_fn(
+            train_path, batch_size=batch_size, num_epochs=nep),
+    )
+
+    tf.logging.set_verbosity(tf.logging.ERROR)
+
+    do_eval('train')
+    do_eval('test')
+
 
 #########################################################################
-
-evaluation_metrics = classifier.evaluate(
-    input_fn=lambda: _input_fn(
-        train_path, batch_size=batch_size, num_epochs=1))
-print("\nTraining set metrics:")
-for m in evaluation_metrics:
-    print(m, evaluation_metrics[m])
-print("---")
-
-# evaluation_metrics = classifier.evaluate(
-#     input_fn=lambda: _input_fn(test_path, batch_size=batch_size, num_epochs=1))
-
-# print("\nTest set metrics:")
-# for m in evaluation_metrics:
-#     print(m, evaluation_metrics[m])
-# print("---")
