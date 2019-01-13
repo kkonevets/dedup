@@ -1,11 +1,13 @@
 import tensorflow as tf
+import shutil
+import os
 
 #########################################################################
 
 batch_size = 128
 embedding_dim = 100
 num_epochs = 20
-epochs_between_evals = 5
+epochs_between_evals = 4
 
 epochs = (num_epochs//epochs_between_evals)*[epochs_between_evals]
 mod = num_epochs % epochs_between_evals
@@ -15,6 +17,7 @@ if mod:
 train_path = '../data/dedup/train.tfrecord'
 test_path = '../data/dedup/test.tfrecord'
 vocab_file = '../data/dedup/vocab.txt'
+model_dir = "./model/deep"
 
 #########################################################################
 
@@ -48,7 +51,7 @@ def _parse_function(record):
 
 # Create an input_fn that parses the tf.Examples from the given files,
 # and split them into features and targets.
-def _input_fn(input_filenames, batch_size=128, num_epochs=1, shuffle=True, seed=0):
+def _input_fn(input_filenames, batch_size=batch_size, num_epochs=1, shuffle=True, seed=0):
 
     # Same code as above; create a dataset and map features and labels.
     ds = tf.data.TFRecordDataset(input_filenames)
@@ -83,14 +86,18 @@ d_terms_embedding_column = tf.feature_column.embedding_column(
 
 deep_columns = [q_terms_embedding_column, d_terms_embedding_column]
 
-my_optimizer = tf.train.AdagradOptimizer(learning_rate=0.1)
-my_optimizer = tf.contrib.estimator.clip_gradients_by_norm(my_optimizer, 5.0)
+my_optimizer = tf.train.AdagradOptimizer(
+    learning_rate=0.1,
+    # l1_regularization_strength=0.001,
+)
+# my_optimizer = tf.contrib.estimator.clip_gradients_by_norm(my_optimizer, 5.0)
 
 classifier = tf.estimator.DNNClassifier(
     feature_columns=deep_columns,
     hidden_units=[200, 100],
+    dropout=0.2,
     optimizer=my_optimizer,
-    model_dir="./model/deep"
+    model_dir=model_dir
 )
 
 # classifier = tf.estimator.LinearClassifier(
@@ -118,6 +125,8 @@ def do_eval(name):
     print("---")
 
 
+if os.path.exists(model_dir):
+    shutil.rmtree(model_dir)
 for nep in epochs:
     tf.logging.set_verbosity(tf.logging.INFO)
     classifier.train(
