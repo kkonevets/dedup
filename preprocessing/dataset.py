@@ -5,6 +5,8 @@ import os
 import io
 from preprocessing import textsim
 from tqdm import tqdm
+import multiprocessing as mp
+from functools import partial
 
 
 samples = tools.load_samples('../data/dedup/samples.npz')
@@ -38,21 +40,25 @@ with io.open('../data/dedup/vocab.txt', 'w', encoding='utf8') as f:
 def input_data(train=True):
     cur_samples = samples[samples['train'] == int(train)]
 
-    labels = cur_samples['target'].values
-
-    q_terms, d_terms, scores, ixs = [], [], [], []
+    q_terms, d_terms, scores, ixs, labels = [], [], [], [], []
     for row in cur_samples.itertuples():
-        scores.append(row.score)
-        ixs.append(row.ix)
-        d_terms.append(fid2text[row.fid].split())
+        f_splited = fid2text[row.fid].split()
         if row.synid != -1:
             qtext = sid2text[row.synid]
         else:
             qtext = qid2text[row.qid]
 
-        q_terms.append(qtext.split())
+        q_splited = qtext.split()
+        if row.target == 0 and ' '.join(f_splited) == ' '.join(q_splited):
+            continue
 
-    # TODO: add DNN features: score, ix, brands ...
+        scores.append(row.score)
+        ixs.append(row.ix)
+        d_terms.append(f_splited)
+        q_terms.append(q_splited)
+        labels.append(row.target)
+
+    # TODO: add DNN features: brands ...
 
     return np.array(q_terms),  np.array(d_terms), scores, ixs, labels
 
@@ -61,22 +67,40 @@ train_data = input_data(True)
 test_data = input_data(False)
 
 
-def get_similarity_features(data):
+def get_similarity_features(data, output_file):
     labels = data[2]
     columns = None
     vals = []
-    for q_terms, d_terms, score, ix, label in tqdm(zip(*data), total=len(data[0])):
+
+    def worker(tup):
+        q_terms, d_terms, score, ix, label = tup
         q = ' '.join(q_terms)
         d = ' '.join(d_terms)
         ftrs = textsim.get_sim_features(q, d)
-        vals.append(list(ftrs.values()) + [score, ix])
-        if not columns:
-            columns = list(ftrs.keys()) + ['score', 'ix']
+        values = list(ftrs.values()) + [score, ix]
+        columns = list(ftrs.keys()) + ['score', 'ix']
+        return values, columns
 
+    def feeder(data):
+        for tup in zip(*data):
+            yield tup
+
+    vals, labels = [], data[-1]
+    with mp.Pool(mp.cpu_count()) as p:
+        max_ = len(data[0])
+        with tqdm(total=max_) as pbar:
+            for values, columns in tqdm(p.imap_unordered(worker, feeder(data))):
+                vals.append(values)
+                pbar.update()
+
+    np.savez(output_file, vals=vals, columns=columns, labels=labels)
     return vals, columns, labels
 
 
-train_sim_ftrs = get_similarity_features(train_data)
+test_sim_ftrs = get_similarity_features(
+    test_data, '../data/dedup/test_sim_ftrs.npz')
+train_sim_ftrs = get_similarity_features(
+    train_data, '../data/dedup/train_sim_ftrs.npz')
 
 
 def _int64_feature(value):
