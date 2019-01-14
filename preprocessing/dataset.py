@@ -94,8 +94,8 @@ def get_similarity_features(data, output_file):
                 vals.append(values)
                 pbar.update()
 
-    np.savez(output_file, vals=vals, columns=columns, labels=labels)
-    return vals, columns, labels
+    np.savez(output_file, vals=vals, labels=labels, columns=columns)
+    return vals, labels, columns
 
 
 test_sim_ftrs = get_similarity_features(
