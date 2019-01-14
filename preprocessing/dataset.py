@@ -40,7 +40,7 @@ with io.open('../data/dedup/vocab.txt', 'w', encoding='utf8') as f:
 def input_data(train=True):
     cur_samples = samples[samples['train'] == int(train)]
 
-    q_terms, d_terms, scores, ixs, labels = [], [], [], [], []
+    fids, qids, q_terms, d_terms, scores, ixs, labels = [], [], [], [], [], [], []
     for row in cur_samples.itertuples():
         f_splited = fid2text[row.fid].split()
         if row.synid != -1:
@@ -52,6 +52,8 @@ def input_data(train=True):
         if row.target == 0 and ' '.join(f_splited) == ' '.join(q_splited):
             continue
 
+        fids.append(row.fid)
+        qids.append("%d_%d" % (row.qid, row.synid))
         scores.append(row.score)
         ixs.append(row.ix)
         d_terms.append(f_splited)
@@ -60,7 +62,7 @@ def input_data(train=True):
 
     # TODO: add DNN features: brands ...
 
-    return np.array(q_terms),  np.array(d_terms), scores, ixs, labels
+    return qids, fids, np.array(q_terms),  np.array(d_terms), scores, ixs, labels
 
 
 train_data = input_data(True)
@@ -68,25 +70,24 @@ test_data = input_data(False)
 
 
 def worker(tup):
-    q_terms, d_terms, score, ix, label = tup
+    qid, fid, q_terms, d_terms, score, ix, label = tup
     q = ' '.join(q_terms)
     d = ' '.join(d_terms)
     ftrs = textsim.get_sim_features(q, d)
-    values = list(ftrs.values()) + [score, ix]
-    columns = list(ftrs.keys()) + ['score', 'ix']
+    values = [qid, fid] + list(ftrs.values()) + [score, ix]
+    columns = ['qid_synid', 'fid'] + list(ftrs.keys()) + ['score', 'ix']
     return values, columns
 
 
 def get_similarity_features(data, output_file):
-    labels = data[2]
+    labels = data[-1]
     columns = None
-    vals = []
 
     def feeder(data):
         for tup in zip(*data):
             yield tup
 
-    vals, labels = [], data[-1]
+    vals = []
     with mp.Pool(mp.cpu_count()) as p:
         max_ = len(data[0])
         with tqdm(total=max_) as pbar:
@@ -98,6 +99,8 @@ def get_similarity_features(data, output_file):
     return vals, labels, columns
 
 
+# sub_test = [v[:1000] for v in test_data]
+# vals, labels, columns = test_sim_ftrs
 test_sim_ftrs = get_similarity_features(
     test_data, '../data/dedup/test_sim_ftrs.npz')
 train_sim_ftrs = get_similarity_features(
@@ -114,7 +117,7 @@ def _bytes_feature(values):
 
 def to_example(data, filename):
     writer = tf.python_io.TFRecordWriter(filename)
-    q_terms, d_terms, scores, ixs, labels = data
+    qids, fids, q_terms, d_terms, scores, ixs, labels = data
     for q, d, l in zip(q_terms, d_terms, labels):
             # Create a feature
         feature = {
