@@ -1,3 +1,5 @@
+import pandas as pd
+
 from fuzzywuzzy import fuzz
 import jellyfish
 import textdistance as td
@@ -8,9 +10,8 @@ from similarity.metric_lcs import MetricLCS
 from similarity.ngram import NGram
 from similarity.qgram import QGram
 import py_stringmatching as sm
-
-q = "мак кофе премиум субл  пак 75.0 грамм"
-d = "кофе маккофе premium  пак 75.0 грх"
+import abydos
+import time
 
 me = sm.MongeElkan()
 menlw = sm.MongeElkan(sim_func=sm.NeedlemanWunsch().get_raw_score)
@@ -23,18 +24,17 @@ metric_lcs = MetricLCS()
 osa = OptimalStringAlignment()
 
 
-def get_sim_features():
+def get_sim_features(q, d):
     q_split = q.split()
     d_split = d.split()
 
     ftrs = {'q_len': len(q), 'd_len': len(d), 'q/d': len(q)/len(d)}
-    ftrs['difflib.ratio'] = fuzz.ratio(q, d)/100
-    ftrs['fuzz.partial_ratio'] = fuzz.partial_ratio(q, d)/100
-    ftrs['fuzz.token_sort_ratio'] = fuzz.token_sort_ratio(q, d)/100
-    ftrs['fuzz.token_set_ratio'] = fuzz.token_set_ratio(q, d)/100
+    ftrs['fuzz.ratio'] = 1 - fuzz.ratio(q, d)/100
+    ftrs['fuzz.partial_ratio'] = 1 - fuzz.partial_ratio(q, d)/100
+    ftrs['fuzz.token_sort_ratio'] = 1 - fuzz.token_sort_ratio(q, d)/100
+    ftrs['fuzz.token_set_ratio'] = 1 - fuzz.token_set_ratio(q, d)/100
 
-    ftrs['jellyfish.jaro_winkler'] = jellyfish.jaro_winkler(q, d)
-
+    ftrs['jellyfish.jaro_winkler'] = 1-jellyfish.jaro_winkler(q, d)
     ftrs['hamming'] = td.hamming.normalized_distance(q, d)
     ftrs['mlipns'] = td.mlipns.normalized_distance(q, d)
     ftrs['levenshtein'] = td.levenshtein.normalized_distance(q, d)
@@ -72,3 +72,22 @@ def get_sim_features():
     ftrs['menlw'] = menlw.get_raw_score(q_split, d_split)
 
     return ftrs
+
+
+def compare(q1, d1, q2, d2):
+    s1 = get_sim_features(q1, d1)
+    s2 = get_sim_features(q2, d2)
+    df = pd.DataFrame(list(s1.values()))
+    df.index = s1.keys()
+    df['s2'] = list(s2.values())
+    df.columns = ['s1', 's2']
+    df['diff'] = df['s2'] - df['s1']
+    print(df)
+    return df
+
+
+# q = "мама папа кошка дом"
+# d1 = "дома панпа мата кощка"
+# d2 = "дом папа мама кощка"
+
+# compare(q, d1, q, d2)
