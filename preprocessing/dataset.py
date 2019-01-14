@@ -6,7 +6,7 @@ import io
 from preprocessing import textsim
 from tqdm import tqdm
 import multiprocessing as mp
-from functools import partial
+from itertools import islice
 
 
 samples = tools.load_samples('../data/dedup/samples.npz')
@@ -67,19 +67,20 @@ train_data = input_data(True)
 test_data = input_data(False)
 
 
+def worker(tup):
+    q_terms, d_terms, score, ix, label = tup
+    q = ' '.join(q_terms)
+    d = ' '.join(d_terms)
+    ftrs = textsim.get_sim_features(q, d)
+    values = list(ftrs.values()) + [score, ix]
+    columns = list(ftrs.keys()) + ['score', 'ix']
+    return values, columns
+
+
 def get_similarity_features(data, output_file):
     labels = data[2]
     columns = None
     vals = []
-
-    def worker(tup):
-        q_terms, d_terms, score, ix, label = tup
-        q = ' '.join(q_terms)
-        d = ' '.join(d_terms)
-        ftrs = textsim.get_sim_features(q, d)
-        values = list(ftrs.values()) + [score, ix]
-        columns = list(ftrs.keys()) + ['score', 'ix']
-        return values, columns
 
     def feeder(data):
         for tup in zip(*data):
