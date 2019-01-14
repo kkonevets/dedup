@@ -89,8 +89,7 @@ def get_similarity_features(data, output_file):
 
     vals = []
     with mp.Pool(mp.cpu_count()) as p:
-        max_ = len(data[0])
-        with tqdm(total=max_) as pbar:
+        with tqdm(total=len(data[0])) as pbar:
             for values, columns in tqdm(p.imap_unordered(worker, feeder(data))):
                 vals.append(values)
                 pbar.update()
