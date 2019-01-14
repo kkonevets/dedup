@@ -3,6 +3,8 @@ import numpy as np
 import tensorflow as tf
 import os
 import io
+from preprocessing import textsim
+from tqdm import tqdm
 
 
 samples = tools.load_samples('../data/dedup/samples.npz')
@@ -38,8 +40,10 @@ def input_data(train=True):
 
     labels = cur_samples['target'].values
 
-    q_terms, d_terms = [], []
+    q_terms, d_terms, scores, ixs = [], [], [], []
     for row in cur_samples.itertuples():
+        scores.append(row.score)
+        ixs.append(row.ix)
         d_terms.append(fid2text[row.fid].split())
         if row.synid != -1:
             qtext = sid2text[row.synid]
@@ -50,11 +54,29 @@ def input_data(train=True):
 
     # TODO: add DNN features: score, ix, brands ...
 
-    return np.array(q_terms),  np.array(d_terms), labels
+    return np.array(q_terms),  np.array(d_terms), scores, ixs, labels
 
 
 train_data = input_data(True)
 test_data = input_data(False)
+
+
+def get_similarity_features(data):
+    labels = data[2]
+    columns = None
+    vals = []
+    for q_terms, d_terms, score, ix, label in tqdm(zip(*data), total=len(data[0])):
+        q = ' '.join(q_terms)
+        d = ' '.join(d_terms)
+        ftrs = textsim.get_sim_features(q, d)
+        vals.append(list(ftrs.values()) + [score, ix])
+        if not columns:
+            columns = list(ftrs.keys()) + ['score', 'ix']
+
+    return vals, columns, labels
+
+
+train_sim_ftrs = get_similarity_features(train_data)
 
 
 def _int64_feature(value):
@@ -67,7 +89,7 @@ def _bytes_feature(values):
 
 def to_example(data, filename):
     writer = tf.python_io.TFRecordWriter(filename)
-    q_terms, d_terms, labels = data
+    q_terms, d_terms, scores, ixs, labels = data
     for q, d, l in zip(q_terms, d_terms, labels):
             # Create a feature
         feature = {
