@@ -70,7 +70,9 @@ def input_data(train=True):
 
     # TODO: add DNN features: brands ...
 
+    cur_samples = cur_samples.loc[rows]
     values = cur_samples[['qid', 'synid', 'fid', 'score', 'ix', 'target']]
+    assert len(values) == len(q_terms)
     return q_terms,  d_terms, values.values
 
 
@@ -133,7 +135,8 @@ def _bytes_feature(values):
 
 def to_example(data, filename):
     writer = tf.python_io.TFRecordWriter(filename)
-    qids, fids, q_terms, d_terms, scores, ixs, labels = data
+    q_terms, d_terms, info = data
+    labels = info[:, -1]
     for q, d, l in zip(q_terms, d_terms, labels):
             # Create a feature
         feature = {
