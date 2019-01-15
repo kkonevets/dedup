@@ -10,6 +10,14 @@ from itertools import islice
 
 
 samples = tools.load_samples('../data/dedup/samples.npz')
+
+# exclude samples not found in TOP
+synids_exclude = set(samples[samples['ix'] == -1]['synid'].unique())
+synids_exclude.remove(-1)
+samples = samples[~samples['synid'].isin(synids_exclude)]
+qids_exclude = samples[samples['ix'] == -1]['qid'].unique()
+samples = samples[~samples['qid'].isin(qids_exclude)]
+
 corpus = tools.load_samples('../data/dedup/corpus.npz')
 
 qids = samples[samples['synid'] == -1]['qid'].unique()
@@ -40,7 +48,8 @@ with io.open('../data/dedup/vocab.txt', 'w', encoding='utf8') as f:
 def input_data(train=True):
     cur_samples = samples[samples['train'] == int(train)]
 
-    fids, qids, q_terms, d_terms, scores, ixs, labels = [], [], [], [], [], [], []
+    q_terms, d_terms = [], []
+    rows = []
     for row in cur_samples.itertuples():
         f_splited = fid2text[row.fid].split()
         if row.synid != -1:
@@ -52,20 +61,17 @@ def input_data(train=True):
         if row.target == 0 and ' '.join(f_splited) == ' '.join(q_splited):
             continue
 
-        if len(q_splited)*len(f_splited) == 0:
+        if len(q_splited) * len(f_splited) == 0:
             continue
 
-        fids.append(row.fid)
-        qids.append("%d_%d" % (row.qid, row.synid))
-        scores.append(row.score)
-        ixs.append(row.ix)
+        rows.append(row.Index)
         d_terms.append(f_splited)
         q_terms.append(q_splited)
-        labels.append(row.target)
 
     # TODO: add DNN features: brands ...
 
-    return qids, fids, np.array(q_terms),  np.array(d_terms), scores, ixs, labels
+    values = cur_samples[['qid', 'synid', 'fid', 'score', 'ix', 'target']]
+    return q_terms,  d_terms, values.values
 
 
 train_data = input_data(True)
@@ -75,17 +81,18 @@ tools.do_pickle(test_data, '../data/dedup/test_data.pkl')
 
 
 def worker(tup):
-    qid, fid, q_terms, d_terms, score, ix, label = tup
+    q_terms, d_terms, info = tup
     q = ' '.join(q_terms)
     d = ' '.join(d_terms)
     ftrs = textsim.get_sim_features(q, d)
-    values = [qid, fid] + list(ftrs.values()) + [score, ix]
-    columns = ['qid_synid', 'fid'] + list(ftrs.keys()) + ['score', 'ix']
+    values = list(info) + list(ftrs.values())
+    columns = ['qid', 'synid', 'fid', 'score',
+               'ix', 'target'] + list(ftrs.keys())
     return values, columns
 
 
 def get_similarity_features(data, output_file):
-    labels = data[-1]
+    labels = data[-1][:, -1]
     columns = None
 
     def feeder(data):
@@ -99,6 +106,7 @@ def get_similarity_features(data, output_file):
                 vals.append(values)
                 pbar.update()
 
+    vals = np.array(vals, dtype=np.float32)
     np.savez(output_file, vals=vals, labels=labels, columns=columns)
     return vals, labels, columns
 
