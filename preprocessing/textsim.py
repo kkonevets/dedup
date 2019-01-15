@@ -80,7 +80,6 @@ def compare(q1, d1, q2, d2):
     df['s2'] = list(s2.values())
     df.columns = ['s1', 's2']
     df['diff'] = df['s2'] - df['s1']
-    print(df)
     return df
 
 
