@@ -73,7 +73,7 @@ def split_unit(t):
 
 
 def proceed_token(t, translit=False):
-    t = t.replace('ё', 'е').replace(',', '.')
+    t = t.replace('ё', 'е').replace('й', 'и').replace(',', '.')
     num = isnum(t)
     if num:
         return num

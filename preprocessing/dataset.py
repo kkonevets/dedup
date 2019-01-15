@@ -70,6 +70,8 @@ def input_data(train=True):
 
 train_data = input_data(True)
 test_data = input_data(False)
+tools.do_pickle(train_data, '../data/dedup/train_data.pkl')
+tools.do_pickle(test_data, '../data/dedup/test_data.pkl')
 
 
 def worker(tup):
@@ -99,6 +101,10 @@ def get_similarity_features(data, output_file):
 
     np.savez(output_file, vals=vals, labels=labels, columns=columns)
     return vals, labels, columns
+
+
+# train_data = tools.do_unpickle('../data/dedup/train_data.pkl')
+# test_data = tools.do_unpickle('../data/dedup/test_data.pkl')
 
 
 # sub_test = [v[:1000] for v in test_data]

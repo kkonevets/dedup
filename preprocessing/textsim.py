@@ -25,7 +25,8 @@ def get_sim_features(q, d):
     q_split = q.split()
     d_split = d.split()
 
-    ftrs = {'q_len': len(q), 'd_len': len(d), 'q/d': len(q)/len(d)}
+    frac = len(q)/len(d) if len(d) else 0
+    ftrs = {'q_len': len(q), 'd_len': len(d), 'q/d': frac}
     ftrs['fuzz.ratio'] = 1 - fuzz.ratio(q, d)/100
     ftrs['fuzz.partial_ratio'] = 1 - fuzz.partial_ratio(q, d)/100
     ftrs['fuzz.token_sort_ratio'] = 1 - fuzz.token_sort_ratio(q, d)/100
@@ -84,7 +85,6 @@ def compare(q1, d1, q2, d2):
 
 
 # q = "мама папа кошка дом"
-# d1 = "дома панпа мата кощка"
-# d2 = "дом папа мама кощка"
+# d = "мама дом папа кошка"
 
-# compare(q, d1, q, d2)
+# get_sim_features(q, d)
