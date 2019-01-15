@@ -73,7 +73,7 @@ def get_tfidf():
 
     corpus_file = '../data/dedup/corpus.npz'
 
-    def normalize_wrap(x): return tools.normalize(x, False)
+    def normalize_wrap(x): return tools.normalize(x, stem=False, translit=True)
 
     def make_corpus():
         corpus = []

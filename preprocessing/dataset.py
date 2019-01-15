@@ -52,6 +52,9 @@ def input_data(train=True):
         if row.target == 0 and ' '.join(f_splited) == ' '.join(q_splited):
             continue
 
+        if len(q_splited)*len(f_splited) == 0:
+            continue
+
         fids.append(row.fid)
         qids.append("%d_%d" % (row.qid, row.synid))
         scores.append(row.score)

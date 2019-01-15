@@ -9,6 +9,7 @@ import os
 from textblob.tokenizers import WordTokenizer
 import string
 from nltk.stem.snowball import SnowballStemmer
+import cyrtranslit
 
 # from tokenizer import tokenize
 
@@ -37,8 +38,8 @@ unit_lookup = {
 stemmer = SnowballStemmer("russian", ignore_stopwords=True)
 
 
-def normalize(sent, stem=False):
-    tokens = normalize_v2(sent)
+def normalize(sent, stem=False, translit=False):
+    tokens = normalize_v2(sent, translit)
     if stem:
         tokens = (stemmer.stem(t) for t in tokens)
     sent = " ".join((t for t in tokens))
@@ -71,7 +72,7 @@ def split_unit(t):
     return t
 
 
-def proceed_token(t):
+def proceed_token(t, translit=False):
     t = t.replace('ё', 'е').replace(',', '.')
     num = isnum(t)
     if num:
@@ -80,8 +81,8 @@ def proceed_token(t):
     t = t.rstrip('ъ')
 
     # # all ascii
-    # if all(ord(char) < 128 for char in t):
-    #     t = translit(t, 'ru')
+    if translit and all(ord(char) < 128 for char in t):
+        t = cyrtranslit.to_cyrillic(t, 'ru')
 
     tmp = dot_prog.split(t)
     if len(tmp) > 1:
@@ -99,9 +100,9 @@ def proceed_token(t):
     return t
 
 
-def normalize_v2(sent):
+def normalize_v2(sent, translit=False):
     tmp = sent.translate(TransTable).lower()
-    tokens = (proceed_token(t) for t in wt.tokenize(tmp, False))
+    tokens = (proceed_token(t, translit) for t in wt.tokenize(tmp, False))
     return tokens
 
 
