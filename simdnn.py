@@ -78,7 +78,7 @@ if os.path.exists(model_dir):
 
 tf.logging.set_verbosity(tf.logging.INFO)
 classifier.train(lambda: _input_fn(
-    True, num_epochs=50, shuffle=True))
+    True, num_epochs=5, shuffle=True))
 
 
 def do_eval(name):
