@@ -3,33 +3,27 @@ import numpy as np
 import pandas as pd
 import shutil
 import os
+import tools
 from sklearn.preprocessing import Normalizer
 
 
 #########################################################################
 
 batch_size = 128
-num_epochs = 20
-epochs_between_evals = 4
-
-epochs = (num_epochs//epochs_between_evals)*[epochs_between_evals]
-mod = num_epochs % epochs_between_evals
-if mod:
-    epochs += [mod]
 
 
 def load_data(fname):
     npzfile = np.load(fname)
     vals = pd.DataFrame(npzfile['vals'])
     vals.columns = npzfile['columns']
-    return vals, npzfile['labels']
+    return vals
 
 
-data_train, y_train = load_data('../data/dedup/train_sim_ftrs.npz')
-data_test, y_test = load_data('../data/dedup/test_sim_ftrs.npz')
+data_train = load_data('../data/dedup/train_sim_ftrs.npz')
+data_test = load_data('../data/dedup/test_sim_ftrs.npz')
 
 cols = [c for c in data_train.columns if c not in {
-    'qid', 'synid', 'fid', 'score', 'ix', 'target'}]
+    'qid', 'synid', 'fid', 'target'}]
 
 norm = Normalizer()
 X_train = norm.fit_transform(data_train[cols])
@@ -42,9 +36,11 @@ model_dir = "./model/simdnn"
 
 def _input_fn(train=True, num_epochs=1, shuffle=False, seed=0):
     if train:
-        ds = tf.data.Dataset.from_tensor_slices(({'x': X_train}, y_train))
+        ds = tf.data.Dataset.from_tensor_slices(
+            ({'x': X_train}, data_train['target']))
     else:
-        ds = tf.data.Dataset.from_tensor_slices(({'x': X_test}, y_test))
+        ds = tf.data.Dataset.from_tensor_slices(
+            ({'x': X_test}, data_test['target']))
 
     if shuffle:
         ds = ds.shuffle(10000, seed=seed)
@@ -58,12 +54,11 @@ def _input_fn(train=True, num_epochs=1, shuffle=False, seed=0):
 
 #########################################################################
 
-# feature_columns = [tf.feature_column.numeric_column(key=k) for k in cols]
 feature_columns = [tf.feature_column.numeric_column(
     "x", shape=X_train.shape[1])]
 
 my_optimizer = tf.train.AdagradOptimizer(
-    learning_rate=0.01,
+    learning_rate=0.1,
     # l1_regularization_strength=0.001,
 )
 
@@ -78,6 +73,14 @@ classifier = tf.estimator.DNNClassifier(
 #########################################################################
 
 
+if os.path.exists(model_dir):
+    shutil.rmtree(model_dir)
+
+tf.logging.set_verbosity(tf.logging.INFO)
+classifier.train(lambda: _input_fn(
+    True, num_epochs=50, shuffle=True))
+
+
 def do_eval(name):
     evaluation_metrics = classifier.evaluate(
         input_fn=lambda: _input_fn(
@@ -90,15 +93,6 @@ def do_eval(name):
     print("---")
 
 
-if os.path.exists(model_dir):
-    shutil.rmtree(model_dir)
-
-for nep in epochs:
-    tf.logging.set_verbosity(tf.logging.INFO)
-    classifier.train(lambda: _input_fn(
-        True, num_epochs=nep, shuffle=True))
-
-    tf.logging.set_verbosity(tf.logging.ERROR)
-
-    do_eval('train')
-    do_eval('test')
+tf.logging.set_verbosity(tf.logging.ERROR)
+do_eval('train')
+do_eval('test')

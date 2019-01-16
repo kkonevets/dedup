@@ -222,7 +222,9 @@ def constitute_text(name, et, up):
     text = name
     bid = et.get('brandId')
     if bid:
-        text += up.id2brand[bid]['name']
+        bname = up.id2brand[bid]['name']
+        if bname not in text:
+            text += ' ' + bname
     return text
 
 

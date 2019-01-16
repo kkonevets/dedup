@@ -94,7 +94,6 @@ def worker(tup):
 
 
 def get_similarity_features(data, output_file):
-    labels = data[-1][:, -1]
     columns = None
 
     def feeder(data):
@@ -109,8 +108,8 @@ def get_similarity_features(data, output_file):
                 pbar.update()
 
     vals = np.array(vals, dtype=np.float32)
-    np.savez(output_file, vals=vals, labels=labels, columns=columns)
-    return vals, labels, columns
+    np.savez(output_file, vals=vals, columns=columns)
+    return vals, columns
 
 
 # train_data = tools.do_unpickle('../data/dedup/train_data.pkl')
@@ -118,7 +117,7 @@ def get_similarity_features(data, output_file):
 
 
 # sub_test = [v[:1000] for v in test_data]
-# vals, labels, columns = test_sim_ftrs
+# vals, columns = test_sim_ftrs
 test_sim_ftrs = get_similarity_features(
     test_data, '../data/dedup/test_sim_ftrs.npz')
 train_sim_ftrs = get_similarity_features(
