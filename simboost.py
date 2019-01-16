@@ -37,7 +37,7 @@ y_test = data_test['target']
 #########################################################################
 
 params = {'n_estimators': 1000, 'n_jobs': -1,  # 1000 best
-          'max_depth': 9,  # 10 best
+          'max_depth': 10,  # 10 best
           'learning_rate': 0.1,  # !!!!!!!!!!!!!!!
           #   'min_child_weight': 1,
           #   'gamma': 3,
@@ -47,7 +47,7 @@ params = {'n_estimators': 1000, 'n_jobs': -1,  # 1000 best
           }
 
 model = xgb.XGBClassifier(**params)
-model.fit(X_train, y_train, verbose=True, early_stopping_rounds=20,
+model.fit(X_train, y_train, verbose=True, early_stopping_rounds=10,
           eval_set=[(X_test, y_test)], eval_metric='logloss')
 
 
