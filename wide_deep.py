@@ -51,7 +51,7 @@ def _parse_function(record):
 
 # Create an input_fn that parses the tf.Examples from the given files,
 # and split them into features and targets.
-def _input_fn(input_filenames, batch_size=batch_size, num_epochs=1, shuffle=True, seed=0):
+def _input_fn(input_filenames, num_epochs=1, shuffle=True, seed=0):
 
     # Same code as above; create a dataset and map features and labels.
     ds = tf.data.TFRecordDataset(input_filenames)
@@ -116,7 +116,7 @@ def do_eval(name):
     path = train_path if name == 'train' else test_path
     evaluation_metrics = classifier.evaluate(
         input_fn=lambda: _input_fn(
-            path, batch_size=batch_size, num_epochs=1),
+            path, num_epochs=1),
         name=name
     )
     print("\n%s set metrics:" % name.upper())
@@ -131,7 +131,7 @@ for nep in epochs:
     tf.logging.set_verbosity(tf.logging.INFO)
     classifier.train(
         input_fn=lambda: _input_fn(
-            train_path, batch_size=batch_size, num_epochs=nep),
+            train_path, num_epochs=nep),
     )
 
     tf.logging.set_verbosity(tf.logging.ERROR)
