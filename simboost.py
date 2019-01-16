@@ -58,14 +58,3 @@ def predict(model, X, y, threshold=0.5):
 _ = predict(model, X_train, y_train)
 y_pred = predict(model, X_test, y_test, threshold=0.8)
 cm = confusion_matrix(y_test, y_pred)
-
-
-corpus = tools.load_samples('../data/dedup/corpus.npz')
-corpus[corpus['fid'] == 1026586]['text'].iloc[0]
-
-q = tools.normalize(
-    'Паяльник импульсный (HS-50T) 220V/30-70 Вт (ZD-60) REXANT', stem=False, translit=True)
-d = tools.normalize(
-    'арт. 12-0162, паяльник импульсный hs-50 30-130 вт (zd-80), REXANT REXANT', stem=False, translit=True)
-
-get_sim_features(q, d)

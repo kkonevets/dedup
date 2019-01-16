@@ -219,10 +219,10 @@ class Updater:
 
 
 def constitute_text(name, et, up):
-    text = name
+    text = name.lower()
     bid = et.get('brandId')
     if bid:
-        bname = up.id2brand[bid]['name']
+        bname = up.id2brand[bid]['name'].lower()
         if bname not in text:
             text += ' ' + bname
     return text
