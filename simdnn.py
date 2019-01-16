@@ -58,9 +58,12 @@ feature_columns = [tf.feature_column.numeric_column(
     "x", shape=X_train.shape[1])]
 
 my_optimizer = tf.train.AdagradOptimizer(
-    learning_rate=0.1,
+    learning_rate=0.005,
     # l1_regularization_strength=0.001,
 )
+
+my_optimizer = tf.contrib.estimator.clip_gradients_by_norm(my_optimizer, 5.0)
+
 
 classifier = tf.estimator.DNNClassifier(
     feature_columns=feature_columns,
@@ -78,7 +81,7 @@ if os.path.exists(model_dir):
 
 tf.logging.set_verbosity(tf.logging.INFO)
 classifier.train(lambda: _input_fn(
-    True, num_epochs=5, shuffle=True))
+    True, num_epochs=500, shuffle=True))
 
 
 def do_eval(name):

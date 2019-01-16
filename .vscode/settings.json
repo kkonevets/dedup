@@ -18,12 +18,17 @@
     "sync-rsync.exclude": [
         "build",
         "*.so",
-        "model"
+        "model",
+        "__pycache__"
     ],
     "sync-rsync.sites": [
         {
             "localPath": "/Users/imafamilia/Documents/dedup/",
             "remotePath": "guyos@c:/home/guyos/D/Documents/dedup/"
+        },
+        {
+            "localPath": "/Users/imafamilia/Documents/dedup/",
+            "remotePath": "ubuntu@10.72.100.255:/home/ubuntu/dedup/"
         }
     ]
 }
