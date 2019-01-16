@@ -36,13 +36,19 @@ y_test = data_test['target']
 
 #########################################################################
 
-params = {'n_estimators': 100, 'n_jobs': -1,
-          'max_depth': 5, 'min_child_weight': 1,
-          'gamma': 3, 'subsample': 0.8,
-          'colsample_bytree': 0.8, 'reg_alpha': 5}
+params = {'n_estimators': 1000, 'n_jobs': -1,  # 1000 best
+          'max_depth': 9,  # 10 best
+          'learning_rate': 0.1,  # !!!!!!!!!!!!!!!
+          #   'min_child_weight': 1,
+          #   'gamma': 3,
+          #   'subsample': 0.8,
+          #   'colsample_bytree': 0.8,
+          #   'reg_alpha': 5
+          }
 
 model = xgb.XGBClassifier(**params)
-model.fit(X_train, y_train)
+model.fit(X_train, y_train, verbose=True, early_stopping_rounds=20,
+          eval_set=[(X_test, y_test)], eval_metric='logloss')
 
 
 def predict(model, X, y, threshold=0.5):
@@ -56,5 +62,5 @@ def predict(model, X, y, threshold=0.5):
 
 
 _ = predict(model, X_train, y_train)
-y_pred = predict(model, X_test, y_test, threshold=0.8)
+y_pred = predict(model, X_test, y_test)
 cm = confusion_matrix(y_test, y_pred)
