@@ -21,7 +21,7 @@ _LIST_SIZE = 6
 with open(_TRAIN_DATA_PATH) as f:
     _NUM_FEATURES = len(f.readline().split()) - 2
 
-_BATCH_SIZE = 128
+_BATCH_SIZE = 64
 _HIDDEN_LAYER_DIMS = ["60", "30"]
 
 #########################################################################
@@ -149,7 +149,8 @@ ranker = get_estimator(hparams)
 
 if os.path.exists(_MODEL_DIR):
     shutil.rmtree(_MODEL_DIR)
+os.makedirs(ranker.eval_dir())
+
 
 ranker.train(input_fn=lambda: input_fn(_TRAIN_DATA_PATH, num_epochs=10))
-
 ranker.evaluate(input_fn=lambda: input_fn(_TEST_DATA_PATH))
