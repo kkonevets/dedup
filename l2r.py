@@ -21,7 +21,7 @@ _LIST_SIZE = 6
 with open(_TRAIN_DATA_PATH) as f:
     _NUM_FEATURES = len(f.readline().split()) - 2
 
-_BATCH_SIZE = 64
+_BATCH_SIZE = 128
 _HIDDEN_LAYER_DIMS = ["60", "30"]
 
 #########################################################################
