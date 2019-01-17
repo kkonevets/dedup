@@ -152,5 +152,5 @@ if os.path.exists(_MODEL_DIR):
 os.makedirs(ranker.eval_dir())
 
 
-ranker.train(input_fn=lambda: input_fn(_TRAIN_DATA_PATH, num_epochs=10))
+ranker.train(input_fn=lambda: input_fn(_TRAIN_DATA_PATH, num_epochs=100))
 ranker.evaluate(input_fn=lambda: input_fn(_TEST_DATA_PATH))
