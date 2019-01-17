@@ -36,7 +36,7 @@ y_test = data_test['target']
 
 #########################################################################
 
-params = {'n_estimators': 1000, 'n_jobs': -1,  # 1000 best
+params = {'n_estimators': 500, 'n_jobs': -1,  # 1000 best
           'max_depth': 10,  # 10 best
           'learning_rate': 0.1,  # !!!!!!!!!!!!!!!
           #   'min_child_weight': 1,

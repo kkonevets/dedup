@@ -105,7 +105,7 @@ def get_similarity_features(data, output_file):
             yield tup
 
     vals = []
-    with mp.Pool(mp.cpu_count(), maxtasksperchild=10000) as p:
+    with mp.Pool(mp.cpu_count(), maxtasksperchild=5000) as p:
         with tqdm(total=len(data[0])) as pbar:
             for values, columns in tqdm(p.imap_unordered(worker, feeder(data))):
                 vals.append(values)
@@ -140,7 +140,8 @@ def to_letor(X, qst, fname):
             if (qid_prev, synid_prev) != (qid, synid):
                 _id += 1
             qid_prev, synid_prev = qid, synid
-            s = '%d qid:%d' % (target, _id)
+            rank = 2 if target == 1 else 1
+            s = '%d qid:%d' % (rank, _id)
             _sft = ' '.join(['%d:%f' % (i + 1, v)
                              for i, v in enumerate(row)])
             s = ' '.join([s, _sft, '\n'])

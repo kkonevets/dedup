@@ -67,7 +67,7 @@ my_optimizer = tf.contrib.estimator.clip_gradients_by_norm(my_optimizer, 5.0)
 
 classifier = tf.estimator.DNNClassifier(
     feature_columns=feature_columns,
-    hidden_units=[300, 300, 100],
+    hidden_units=[100, 100],
     # dropout=0.2,
     optimizer=my_optimizer,
     model_dir=model_dir
@@ -81,7 +81,7 @@ if os.path.exists(model_dir):
 
 tf.logging.set_verbosity(tf.logging.INFO)
 classifier.train(lambda: _input_fn(
-    True, num_epochs=500, shuffle=True))
+    True, num_epochs=20, shuffle=True))
 
 
 def do_eval(name):
