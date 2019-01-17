@@ -26,9 +26,6 @@ _HIDDEN_LAYER_DIMS = ["60", "30"]
 
 #########################################################################
 
-# for a,b in tfr.data.libsvm_generator(path, _NUM_FEATURES, _LIST_SIZE):
-#     print(1)
-
 
 def input_fn(path, num_epochs=1):
     train_dataset = tf.data.Dataset.from_generator(
@@ -108,11 +105,6 @@ def eval_metric_fns():
             tfr.metrics.RankingMetricKey.NDCG, topn=topn)
         for topn in range(1, _LIST_SIZE + 1)
     }
-    metric_fns.update({
-        "metric/P@%d" % topn: tfr.metrics.make_ranking_metric_fn(
-            tfr.metrics.RankingMetricKey.PRECISION, topn=topn)
-        for topn in range(1, _LIST_SIZE + 1)
-    })
 
     return metric_fns
 
