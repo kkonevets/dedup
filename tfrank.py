@@ -14,8 +14,7 @@ _TRAIN_DATA_PATH = "../data/dedup/train_letor.txt"
 _TEST_DATA_PATH = "../data/dedup/test_letor.txt"
 _MODEL_DIR = './model/tfrank'
 
-# _LOSS = "pairwise_logistic_loss"
-_LOSS = "list_mle_loss"
+_LOSS = "pairwise_logistic_loss"
 
 _LIST_SIZE = 6
 
