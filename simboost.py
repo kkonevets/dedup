@@ -9,7 +9,7 @@ from collections import Counter
 from sklearn.metrics import classification_report
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.model_selection import GridSearchCV
-from sklearn.preprocessing import Normalizer
+from sklearn.preprocessing import StandardScaler
 
 #########################################################################
 
@@ -27,7 +27,7 @@ data_test = load_data('../data/dedup/test_sim_ftrs.npz')
 cols = [c for c in data_train.columns if c not in {
     'qid', 'synid', 'fid', 'target'}]
 
-norm = Normalizer()
+norm = StandardScaler()
 X_train = norm.fit_transform(data_train[cols])
 X_test = norm.transform(data_test[cols])
 

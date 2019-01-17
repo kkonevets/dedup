@@ -7,7 +7,11 @@ from preprocessing import textsim
 from tqdm import tqdm
 import multiprocessing as mp
 from itertools import islice
+from sklearn.preprocessing import StandardScaler
 
+
+INFO_COLUMNS = ['qid', 'synid', 'fid', 'target']
+COLNAMES = INFO_COLUMNS + ['score', 'ix']
 
 samples = tools.load_samples('../data/dedup/samples.npz')
 
@@ -71,7 +75,7 @@ def input_data(train=True):
     # TODO: add DNN features: brands ...
 
     cur_samples = cur_samples.loc[rows]
-    values = cur_samples[['qid', 'synid', 'fid', 'score', 'ix', 'target']]
+    values = cur_samples[COLNAMES]
     assert len(values) == len(q_terms)
     return q_terms,  d_terms, values.values
 
@@ -88,8 +92,7 @@ def worker(tup):
     d = ' '.join(d_terms)
     ftrs = textsim.get_sim_features(q, d)
     values = list(info) + list(ftrs.values())
-    columns = ['qid', 'synid', 'fid', 'score',
-               'ix', 'target'] + list(ftrs.keys())
+    columns = COLNAMES + list(ftrs.keys())
     return values, columns
 
 
@@ -122,6 +125,40 @@ test_sim_ftrs = get_similarity_features(
     test_data, '../data/dedup/test_sim_ftrs.npz')
 train_sim_ftrs = get_similarity_features(
     train_data, '../data/dedup/train_sim_ftrs.npz')
+
+
+# train_sim_ftrs = data_train.values, data_train.columns
+# test_sim_ftrs = data_test.values, data_test.columns
+
+
+def to_letor(vals, qids, ratgets, fname):
+    with open(fname, 'w') as f:
+        for qid, rank, row in tqdm(zip(qids, ratgets, vals), total=len(vals)):
+            s = '%d qid:%d' % (rank, int(qid))
+            _sft = ' '.join(['%d:%s' % (i + 1, v)
+                             for i, v in enumerate(row)])
+            s = ' '.join([s, _sft, '\n'])
+            f.write(s)
+
+
+def save_letor_data(train_sim_ftrs, test_sim_ftrs):
+    columns = list(train_sim_ftrs[1])
+    qid_ix = columns.index('qid')
+    ratget_ix = columns.index('target')
+
+    value_ixs = [ix for ix, c in enumerate(columns) if c not in INFO_COLUMNS]
+
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(train_sim_ftrs[0][:, value_ixs])
+    X_test = scaler.transform(test_sim_ftrs[0][:, value_ixs])
+
+    to_letor(X_train, train_sim_ftrs[0][:, qid_ix],
+             train_sim_ftrs[0][:, ratget_ix], '../data/dedup/train_letor.txt')
+    to_letor(X_test, test_sim_ftrs[0][:, qid_ix],
+             test_sim_ftrs[0][:, ratget_ix], '../data/dedup/test_letor.txt')
+
+
+save_letor_data(train_sim_ftrs, test_sim_ftrs)
 
 
 def _int64_feature(value):

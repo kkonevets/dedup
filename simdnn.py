@@ -4,7 +4,7 @@ import pandas as pd
 import shutil
 import os
 import tools
-from sklearn.preprocessing import Normalizer
+from sklearn.preprocessing import StandardScaler
 
 
 #########################################################################
@@ -25,7 +25,7 @@ data_test = load_data('../data/dedup/test_sim_ftrs.npz')
 cols = [c for c in data_train.columns if c not in {
     'qid', 'synid', 'fid', 'target'}]
 
-norm = Normalizer()
+norm = StandardScaler()
 X_train = norm.fit_transform(data_train[cols])
 X_test = norm.transform(data_test[cols])
 
@@ -58,7 +58,7 @@ feature_columns = [tf.feature_column.numeric_column(
     "x", shape=X_train.shape[1])]
 
 my_optimizer = tf.train.AdagradOptimizer(
-    learning_rate=0.005,
+    learning_rate=0.1,
     # l1_regularization_strength=0.001,
 )
 
@@ -67,7 +67,7 @@ my_optimizer = tf.contrib.estimator.clip_gradients_by_norm(my_optimizer, 5.0)
 
 classifier = tf.estimator.DNNClassifier(
     feature_columns=feature_columns,
-    hidden_units=[100, 100],
+    hidden_units=[300, 300, 100],
     # dropout=0.2,
     optimizer=my_optimizer,
     model_dir=model_dir
