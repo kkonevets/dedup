@@ -140,8 +140,7 @@ def to_letor(X, qst, fname):
             if (qid_prev, synid_prev) != (qid, synid):
                 _id += 1
             qid_prev, synid_prev = qid, synid
-            rank = 2 if target == 1 else 1
-            s = '%d qid:%d' % (rank, _id)
+            s = '%d qid:%d' % (target, _id)
             _sft = ' '.join(['%d:%f' % (i + 1, v)
                              for i, v in enumerate(row)])
             s = ' '.join([s, _sft, '\n'])
