@@ -14,7 +14,8 @@ _TRAIN_DATA_PATH = "../data/dedup/train_letor.txt"
 _TEST_DATA_PATH = "../data/dedup/test_letor.txt"
 _MODEL_DIR = './model/tfrank'
 
-_LOSS = "pairwise_logistic_loss"
+# _LOSS = "pairwise_logistic_loss"
+_LOSS = "list_mle_loss"
 
 _LIST_SIZE = 6
 
@@ -152,5 +153,5 @@ if os.path.exists(_MODEL_DIR):
 os.makedirs(ranker.eval_dir())
 
 
-ranker.train(input_fn=lambda: input_fn(_TRAIN_DATA_PATH, num_epochs=100))
+ranker.train(input_fn=lambda: input_fn(_TRAIN_DATA_PATH, num_epochs=10))
 ranker.evaluate(input_fn=lambda: input_fn(_TEST_DATA_PATH))
