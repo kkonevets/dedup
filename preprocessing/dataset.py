@@ -1,5 +1,6 @@
 import tools
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 import os
 import io
@@ -131,31 +132,40 @@ train_sim_ftrs = get_similarity_features(
 # test_sim_ftrs = data_test.values, data_test.columns
 
 
-def to_letor(vals, qids, ratgets, fname):
+def to_letor(X, qst, fname):
+    _id = 0
+    qid_prev, synid_prev = None, None
     with open(fname, 'w') as f:
-        for qid, rank, row in tqdm(zip(qids, ratgets, vals), total=len(vals)):
-            s = '%d qid:%d' % (rank, int(qid))
-            _sft = ' '.join(['%d:%s' % (i + 1, v)
+        for (qid, synid, target), row in tqdm(zip(qst, X), total=len(X)):
+            if (qid_prev, synid_prev) != (qid, synid):
+                _id += 1
+            qid_prev, synid_prev = qid, synid
+            s = '%d qid:%d' % (target, _id)
+            _sft = ' '.join(['%d:%f' % (i + 1, v)
                              for i, v in enumerate(row)])
             s = ' '.join([s, _sft, '\n'])
             f.write(s)
 
 
 def save_letor_data(train_sim_ftrs, test_sim_ftrs):
-    columns = list(train_sim_ftrs[1])
-    qid_ix = columns.index('qid')
-    ratget_ix = columns.index('target')
+    train_df = pd.DataFrame(train_sim_ftrs[0])
+    train_df.columns = train_sim_ftrs[1]
+    train_df.sort_values(['qid', 'synid'], inplace=True)
 
-    value_ixs = [ix for ix, c in enumerate(columns) if c not in INFO_COLUMNS]
+    test_df = pd.DataFrame(test_sim_ftrs[0])
+    test_df.columns = test_sim_ftrs[1]
+    test_df.sort_values(['qid', 'synid'], inplace=True)
+
+    value_cols = [c for c in train_df.columns if c not in INFO_COLUMNS]
 
     scaler = StandardScaler()
-    X_train = scaler.fit_transform(train_sim_ftrs[0][:, value_ixs])
-    X_test = scaler.transform(test_sim_ftrs[0][:, value_ixs])
+    X_train = scaler.fit_transform(train_df[value_cols])
+    X_test = scaler.transform(test_df[value_cols])
 
-    to_letor(X_train, train_sim_ftrs[0][:, qid_ix],
-             train_sim_ftrs[0][:, ratget_ix], '../data/dedup/train_letor.txt')
-    to_letor(X_test, test_sim_ftrs[0][:, qid_ix],
-             test_sim_ftrs[0][:, ratget_ix], '../data/dedup/test_letor.txt')
+    to_letor(X_train, train_df[['qid', 'synid', 'target']].values,
+             '../data/dedup/train_letor.txt')
+    to_letor(X_test, test_df[['qid', 'synid', 'target']].values,
+             '../data/dedup/test_letor.txt')
 
 
 save_letor_data(train_sim_ftrs, test_sim_ftrs)
