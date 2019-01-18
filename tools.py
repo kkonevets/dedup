@@ -228,8 +228,8 @@ def constitute_text(name, et, up):
     return text
 
 
-def load_samples(filename):
+def load_samples(filename, key='samples'):
     npzfile = np.load(filename)
-    samples = pd.DataFrame(npzfile['samples'])
+    samples = pd.DataFrame(npzfile[key])
     samples.columns = npzfile['columns']
     return samples

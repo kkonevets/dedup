@@ -14,15 +14,8 @@ from sklearn.preprocessing import StandardScaler
 #########################################################################
 
 
-def load_data(fname):
-    npzfile = np.load(fname)
-    vals = pd.DataFrame(npzfile['vals'])
-    vals.columns = npzfile['columns']
-    return vals
-
-
-data_train = load_data('../data/dedup/train_sim_ftrs.npz')
-data_test = load_data('../data/dedup/test_sim_ftrs.npz')
+data_train = tools.load_samples('../data/dedup/train_sim_ftrs.npz', 'vals')
+data_test = tools.load_samples('../data/dedup/test_sim_ftrs.npz', 'vals')
 
 cols = [c for c in data_train.columns if c not in {
     'qid', 'synid', 'fid', 'target'}]

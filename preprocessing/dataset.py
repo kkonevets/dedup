@@ -14,43 +14,19 @@ from sklearn.preprocessing import StandardScaler
 INFO_COLUMNS = ['qid', 'synid', 'fid', 'target']
 COLNAMES = INFO_COLUMNS + ['score', 'ix']
 
-samples = tools.load_samples('../data/dedup/samples.npz')
-
-# exclude samples not found in TOP
-synids_exclude = set(samples[samples['ix'] == -1]['synid'].unique())
-synids_exclude.remove(-1)
-samples = samples[~samples['synid'].isin(synids_exclude)]
-qids_exclude = samples[samples['ix'] == -1]['qid'].unique()
-samples = samples[~samples['qid'].isin(qids_exclude)]
-
-corpus = tools.load_samples('../data/dedup/corpus.npz')
-
-qids = samples[samples['synid'] == -1]['qid'].unique()
-sids = samples[samples['synid'] != -1]['synid'].unique()
-fids = samples['fid'].unique()
+samples, corpus, fid2text, sid2text, qid2text = {}, {}, {}, {}, {}
 
 
 def get_id2text(tag, ids):
+    global corpus
     id2text = {}
     for _id, text in corpus[corpus[tag].isin(ids)][[tag, 'text']].values:
         id2text[_id] = text
     return id2text
 
 
-qid2text = get_id2text('qid', qids)
-sid2text = get_id2text('synid', sids)
-fid2text = get_id2text('fid', fids)
-
-vals = corpus[corpus['train'] != 0]['text'].values
-informative_terms = set([w for s in vals for w in s.split()])
-with io.open('../data/dedup/vocab.txt', 'w', encoding='utf8') as f:
-    for term in informative_terms:
-        f.write(term + '\n')
-
-#########################################################################
-
-
 def input_data(train=True):
+    global samples, fid2text, sid2text, qid2text
     cur_samples = samples[samples['train'] == int(train)]
 
     q_terms, d_terms = [], []
@@ -81,12 +57,6 @@ def input_data(train=True):
     return q_terms,  d_terms, values.values
 
 
-train_data = input_data(True)
-test_data = input_data(False)
-tools.do_pickle(train_data, '../data/dedup/train_data.pkl')
-tools.do_pickle(test_data, '../data/dedup/test_data.pkl')
-
-
 def worker(tup):
     q_terms, d_terms, info = tup
     q = ' '.join(q_terms)
@@ -115,31 +85,22 @@ def get_similarity_features(data, output_file):
     np.savez(output_file, vals=vals, columns=columns)
     return vals, columns
 
-
-# train_data = tools.do_unpickle('../data/dedup/train_data.pkl')
-# test_data = tools.do_unpickle('../data/dedup/test_data.pkl')
+#########################################################################
 
 
-# sub_test = [v[:1000] for v in test_data]
-# vals, columns = test_sim_ftrs
-test_sim_ftrs = get_similarity_features(
-    test_data, '../data/dedup/test_sim_ftrs.npz')
-train_sim_ftrs = get_similarity_features(
-    train_data, '../data/dedup/train_sim_ftrs.npz')
-
-
-# train_sim_ftrs = data_train.values, data_train.columns
-# test_sim_ftrs = data_test.values, data_test.columns
+def letor_producer(X, qst):
+    _id = 0
+    qid_prev, synid_prev = None, None
+    for (qid, synid, target), row in tqdm(zip(qst, X), total=len(X)):
+        if (qid_prev, synid_prev) != (qid, synid):
+            _id += 1
+        qid_prev, synid_prev = qid, synid
+        yield target, _id, row
 
 
 def to_letor(X, qst, fname):
-    _id = 0
-    qid_prev, synid_prev = None, None
     with open(fname, 'w') as f:
-        for (qid, synid, target), row in tqdm(zip(qst, X), total=len(X)):
-            if (qid_prev, synid_prev) != (qid, synid):
-                _id += 1
-            qid_prev, synid_prev = qid, synid
+        for target, _id, row in letor_producer(X, qst):
             s = '%d qid:%d' % (target, _id)
             _sft = ' '.join(['%d:%f' % (i + 1, v)
                              for i, v in enumerate(row)])
@@ -147,32 +108,32 @@ def to_letor(X, qst, fname):
             f.write(s)
 
 
-def save_letor_data(train_sim_ftrs, test_sim_ftrs):
-    train_df = pd.DataFrame(train_sim_ftrs[0])
-    train_df.columns = train_sim_ftrs[1]
-    train_df.sort_values(['qid', 'synid'], inplace=True)
+def letor_prepare(train_sim_ftrs, test_sim_ftrs):
+    train_sim_ftrs.sort_values(['qid', 'synid'], inplace=True)
+    test_sim_ftrs.sort_values(['qid', 'synid'], inplace=True)
 
-    test_df = pd.DataFrame(test_sim_ftrs[0])
-    test_df.columns = test_sim_ftrs[1]
-    test_df.sort_values(['qid', 'synid'], inplace=True)
-
-    value_cols = [c for c in train_df.columns if c not in INFO_COLUMNS]
+    value_cols = [c for c in train_sim_ftrs.columns if c not in INFO_COLUMNS]
 
     scaler = StandardScaler()
-    X_train = scaler.fit_transform(train_df[value_cols])
-    X_test = scaler.transform(test_df[value_cols])
+    X_train = scaler.fit_transform(train_sim_ftrs[value_cols])
+    X_test = scaler.transform(test_sim_ftrs[value_cols])
 
-    to_letor(X_train, train_df[['qid', 'synid', 'target']].values,
-             '../data/dedup/train_letor.txt')
-    to_letor(X_test, test_df[['qid', 'synid', 'target']].values,
-             '../data/dedup/test_letor.txt')
+    qst_train = train_sim_ftrs[['qid', 'synid', 'target']].values
+    qst_test = test_sim_ftrs[['qid', 'synid', 'target']].values
 
-
-save_letor_data(train_sim_ftrs, test_sim_ftrs)
+    return X_train, qst_train, X_test, qst_test
 
 
-def _int64_feature(value):
-    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+def save_letor_txt(train_sim_ftrs, test_sim_ftrs):
+    X_train, qst_train, X_test, qst_test = letor_prepare(
+        train_sim_ftrs, test_sim_ftrs)
+
+    to_letor(X_train, qst_train, '../data/dedup/train_letor.txt')
+    to_letor(X_test, qst_test, '../data/dedup/test_letor.txt')
+
+
+def _int32_feature(value):
+    return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
 
 
 def _bytes_feature(values):
@@ -188,7 +149,7 @@ def to_example(data, filename):
         feature = {
             'q_terms': _bytes_feature([tf.compat.as_bytes(qi) for qi in q]),
             'd_terms': _bytes_feature([tf.compat.as_bytes(di) for di in d]),
-            'labels': _int64_feature(int(l)),
+            'labels': _int32_feature(int(l)),
         }
         # Create an example protocol buffer
         example = tf.train.Example(features=tf.train.Features(feature=feature))
@@ -199,5 +160,91 @@ def to_example(data, filename):
     writer.close()
 
 
-to_example(train_data, '../data/dedup/train.tfrecord')
-to_example(test_data, '../data/dedup/test.tfrecord')
+def to_letor_example(train_sim_ftrs, test_sim_ftrs):
+    X_train, qst_train, X_test, qst_test = letor_prepare(
+        train_sim_ftrs, test_sim_ftrs)
+
+    X_train = X_train.astype(np.float)
+    X_test = X_test.astype(np.float)
+
+    def save_one(X, qst, filename):
+        writer = tf.python_io.TFRecordWriter(filename)
+        for target, _id, row in letor_producer(X, qst):
+            # Create a feature
+            feature = {
+                'qid': _int32_feature(int(_id)),
+                'x': tf.train.Feature(float_list=tf.train.FloatList(value=row)),
+                'labels': _int32_feature(int(target)),
+            }
+            # Create an example protocol buffer
+            example = tf.train.Example(
+                features=tf.train.Features(feature=feature))
+
+            # Serialize to string and write on the file
+            writer.write(example.SerializeToString())
+
+        writer.close()
+
+    save_one(X_train, qst_train, '../data/dedup/train_letor.tfrecord')
+    save_one(X_test, qst_test, '../data/dedup/test_letor.tfrecord')
+
+
+def main():
+    global samples, corpus, fid2text, sid2text, qid2text
+    samples = tools.load_samples('../data/dedup/samples.npz')
+
+    # exclude samples not found in TOP
+    synids_exclude = set(samples[samples['ix'] == -1]['synid'].unique())
+    synids_exclude.remove(-1)
+    samples = samples[~samples['synid'].isin(synids_exclude)]
+    qids_exclude = samples[samples['ix'] == -1]['qid'].unique()
+    samples = samples[~samples['qid'].isin(qids_exclude)]
+
+    corpus = tools.load_samples('../data/dedup/corpus.npz')
+
+    qids = samples[samples['synid'] == -1]['qid'].unique()
+    sids = samples[samples['synid'] != -1]['synid'].unique()
+    fids = samples['fid'].unique()
+
+    qid2text = get_id2text('qid', qids)
+    sid2text = get_id2text('synid', sids)
+    fid2text = get_id2text('fid', fids)
+
+    vals = corpus[corpus['train'] != 0]['text'].values
+    informative_terms = set([w for s in vals for w in s.split()])
+    with io.open('../data/dedup/vocab.txt', 'w', encoding='utf8') as f:
+        for term in informative_terms:
+            f.write(term + '\n')
+
+    train_data = input_data(True)
+    test_data = input_data(False)
+    tools.do_pickle(train_data, '../data/dedup/train_data.pkl')
+    tools.do_pickle(test_data, '../data/dedup/test_data.pkl')
+
+    #########################################################################
+
+    # train_data = tools.do_unpickle('../data/dedup/train_data.pkl')
+    # test_data = tools.do_unpickle('../data/dedup/test_data.pkl')
+
+    # sub_test = [v[:1000] for v in test_data]
+    # vals, columns = test_sim_ftrs
+    test_sim_ftrs = get_similarity_features(
+        test_data, '../data/dedup/test_sim_ftrs.npz')
+    train_sim_ftrs = get_similarity_features(
+        train_data, '../data/dedup/train_sim_ftrs.npz')
+
+    train_sim_ftrs = tools.load_samples(
+        '../data/dedup/train_sim_ftrs.npz', key='vals')
+    test_sim_ftrs = tools.load_samples(
+        '../data/dedup/test_sim_ftrs.npz', key='vals')
+
+    save_letor_txt(train_sim_ftrs, test_sim_ftrs)
+
+    to_example(train_data, '../data/dedup/train.tfrecord')
+    to_example(test_data, '../data/dedup/test.tfrecord')
+
+    to_letor_example(train_sim_ftrs, test_sim_ftrs)
+
+
+if __name__ == "__main__":
+    pass
