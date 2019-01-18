@@ -40,8 +40,10 @@ python3 tfrank.py \
 --vali_path=$VALI \
 --test_path=$TEST \
 --output_dir=$OUTPUT_DIR \
---num_features=44
---list_size=6
+--num_features=44 \
+--list_size=6 \
+--train_batch_size=32 \
+--num_train_steps=100000
 
 You can use TensorBoard to display the training results stored in $OUTPUT_DIR.
 """
@@ -50,6 +52,7 @@ from absl import flags
 
 import numpy as np
 import six
+from pprint import pprint
 import tensorflow as tf
 import tensorflow_ranking as tfr
 
@@ -69,7 +72,7 @@ flags.DEFINE_list("hidden_layer_dims", ["256", "128", "64"],
                   "Sizes for hidden layers.")
 
 flags.DEFINE_integer("num_features", 44, "Number of features per document.")
-flags.DEFINE_integer("list_size", 100, "List size used for training.")
+flags.DEFINE_integer("list_size", 6, "List size used for training.")
 flags.DEFINE_integer("group_size", 1, "Group size used in score function.")
 
 flags.DEFINE_string("loss", "pairwise_logistic_loss",
@@ -255,7 +258,7 @@ def get_eval_metric_fns():
     metric_fns.update({
         "metric/ndcg@%d" % topn: tfr.metrics.make_ranking_metric_fn(
             tfr.metrics.RankingMetricKey.NDCG, topn=topn)
-        for topn in [1, 3, 5, 10]
+        for topn in range(1, FLAGS.list_size + 1)
     })
     return metric_fns
 
@@ -312,7 +315,8 @@ def train_and_eval():
     tf.estimator.train_and_evaluate(estimator, train_spec, vali_spec)
 
     # Evaluate on the test data.
-    estimator.evaluate(input_fn=test_input_fn, hooks=[test_hook])
+    res = estimator.evaluate(input_fn=test_input_fn, hooks=[test_hook])
+    pprint(res)
 
 
 def main(_):
