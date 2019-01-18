@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def dcg_at_k(r, k, method=0):
+def dcg_at_k(r, k, method=1):
     """Score is discounted cumulative gain (dcg)
     Relevance is positive real values.  Can use binary
     as the previous methods.
@@ -40,7 +40,7 @@ def dcg_at_k(r, k, method=0):
     return 0.
 
 
-def ndcg_at_k(r, k, method=0):
+def ndcg_at_k(r, k, method=1):
     """Score is normalized discounted cumulative gain (ndcg)
     Relevance is positive real values.  Can use binary
     as the previous methods.
@@ -116,7 +116,7 @@ if __name__ == "__main__":
     for r in l:
         si = []
         for k in range(1, len(r) + 1):
-            si.append(ndcg_at_k(r, k, method=1))
+            si.append(ndcg_at_k(r, k))
         scores.append(si)
 
     scores = np.array(scores)
@@ -125,10 +125,10 @@ if __name__ == "__main__":
     for i in range(6):
         r = [0]*6
         r[i] = 1
-        print(r, ndcg_at_k(r, 2, method=1))
+        print(r, ndcg_at_k(r, 2))
 
     r = [0, 1, 0, 0, 0, 0]
-    ndcg_at_k(r, 2, method=1)  # 0.63
+    ndcg_at_k(r, 2)  # 0.63
 
     temp = [1, 1, 1, 0.63, 0.63, 0.63, 0.63,
             0.63, 0.63, 0.63, 0.63, 0.63]  # 0.725
