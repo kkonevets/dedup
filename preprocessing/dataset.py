@@ -4,6 +4,7 @@ import pandas as pd
 import tensorflow as tf
 import os
 import io
+from sklearn.model_selection import train_test_split
 from preprocessing import textsim
 from tqdm import tqdm
 import multiprocessing as mp
@@ -118,12 +119,24 @@ def letor_prepare(train_sim_ftrs, test_sim_ftrs):
     return X_train, qst_train, X_test, qst_test
 
 
-def save_letor_txt(train_sim_ftrs, test_sim_ftrs):
+def save_letor_txt(train_sim_ftrs, test_sim_ftrs, vali=False):
     X_train, qst_train, X_test, qst_test = letor_prepare(
         train_sim_ftrs, test_sim_ftrs)
 
-    to_letor(X_train, qst_train, '../data/dedup/train_letor.txt')
     to_letor(X_test, qst_test, '../data/dedup/test_letor.txt')
+
+    if vali:
+        hashtag = qst_train[:, :2]  # ['qid', 'synid']
+        hashtag = pd.Series(map(tuple, hashtag))
+        hash_train, hash_vali = train_test_split(
+            hashtag.unique(), test_size=0.25, random_state=42)
+        cond = hashtag.isin(hash_train).values
+        to_letor(X_train[cond], qst_train[cond],
+                 '../data/dedup/train_letor.txt')
+        to_letor(X_train[~cond], qst_train[~cond],
+                 '../data/dedup/vali_letor.txt')
+    else:
+        to_letor(X_train, qst_train, '../data/dedup/train_letor.txt')
 
 
 def _int32_feature(value):
@@ -158,11 +171,12 @@ def to_letor_example(train_sim_ftrs, test_sim_ftrs):
     X_train, qst_train, X_test, qst_test = letor_prepare(
         train_sim_ftrs, test_sim_ftrs)
 
-    X_train = X_train.astype(np.float)
-    X_test = X_test.astype(np.float)
+    X_train = X_train.astype(np.float32)
+    X_test = X_test.astype(np.float32)
 
     def save_one(X, qst, filename):
         writer = tf.python_io.TFRecordWriter(filename)
+        _id_prev = None
         for target, _id, row in letor_producer(X, qst):
             # Create a feature
             feature = {
@@ -231,12 +245,12 @@ def main():
     train_sim_ftrs = get_similarity_features(
         train_data, '../data/dedup/train_sim_ftrs.npz')
 
-    # train_sim_ftrs = tools.load_samples(
-    #     '../data/dedup/train_sim_ftrs.npz', key='vals')
-    # test_sim_ftrs = tools.load_samples(
-    #     '../data/dedup/test_sim_ftrs.npz', key='vals')
+    train_sim_ftrs = tools.load_samples(
+        '../data/dedup/train_sim_ftrs.npz', key='vals')
+    test_sim_ftrs = tools.load_samples(
+        '../data/dedup/test_sim_ftrs.npz', key='vals')
 
-    save_letor_txt(train_sim_ftrs, test_sim_ftrs)
+    save_letor_txt(train_sim_ftrs, test_sim_ftrs, vali=True)
 
     to_letor_example(train_sim_ftrs, test_sim_ftrs)
 
