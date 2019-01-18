@@ -73,9 +73,36 @@ def ndcg_at_k(r, k, method=0):
     return dcg_at_k(r, k, method) / dcg_max
 
 
-if __name__ == "__main__":
-    import numpy as np
+def test_tensor():
+    import tensorflow as tf
+    import tensorflow_ranking as tfr
 
+    l = np.array([[1, 0, 0, 0, 0, 0],
+                  [1, 0, 0, 0, 0, 0],
+                  [1, 0, 0, 0, 0, 0],
+                  [0, 1, 0, 0, 0, 0],
+                  [1, 0, 0, 0, 0, 0],
+                  [0, 0, 0, 1, 0, 0],
+                  [0, 0, 1, 0, 0, 0],
+                  [1, 0, 0, 0, 0, 0]])
+
+    p = np.array([[1, 0, 0, 0, 0, 0]]*len(l))
+
+    labels = tf.placeholder(tf.float32, shape=l.shape)
+    predictions = tf.placeholder(tf.float32, shape=p.shape)
+    score = tfr.metrics.normalized_discounted_cumulative_gain(
+        labels, predictions, topn=2)
+
+    initg = tf.initialize_all_variables()
+    initl = tf.local_variables_initializer()
+
+    with tf.Session() as sess:
+        sess.run(initg)
+        sess.run(initl)
+        print(sess.run(score, feed_dict={predictions: p, labels: l}))
+
+
+if __name__ == "__main__":
     l = [[1, 0, 0, 0, 0, 0],
          [1, 0, 0, 0, 0, 0],
          [1, 0, 0, 0, 0, 0],
@@ -89,13 +116,20 @@ if __name__ == "__main__":
     for r in l:
         si = []
         for k in range(1, len(r) + 1):
-            si.append(ndcg_at_k(r, k, method=0))
+            si.append(ndcg_at_k(r, k, method=1))
         scores.append(si)
 
     scores = np.array(scores)
     print(np.mean(scores, axis=0))
 
-    c1 = len(data_test[(data_test['ix'] == 0) & (
-        data_test['target'] == 1)]['qid'].unique())
+    for i in range(6):
+        r = [0]*6
+        r[i] = 1
+        print(r, ndcg_at_k(r, 2, method=1))
 
-    c1/len(data_test['qid'].unique())
+    r = [0, 1, 0, 0, 0, 0]
+    ndcg_at_k(r, 2, method=1)
+
+    temp = [1, 1, 1, 0.63, 0.63, 0.63, 0.63, 0.63, 0.63, 0.63, 0.63, 0.63]
+    ndcg2 = np.mean(temp)
+    print('ndcg2 %f' % ndcg2)
