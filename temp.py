@@ -74,7 +74,28 @@ def ndcg_at_k(r, k, method=0):
 
 
 if __name__ == "__main__":
-    r = [0, 1, 0, 0, 0, 0]
+    import numpy as np
 
-    for k in range(len(r)):
-        print('NDCG@%d %f' % (k, ndcg_at_k(r, k, method=0)))
+    l = [[1, 0, 0, 0, 0, 0],
+         [1, 0, 0, 0, 0, 0],
+         [1, 0, 0, 0, 0, 0],
+         [0, 1, 0, 0, 0, 0],
+         [1, 0, 0, 0, 0, 0],
+         [0, 0, 0, 1, 0, 0],
+         [0, 0, 1, 0, 0, 0],
+         [1, 0, 0, 0, 0, 0]]
+
+    scores = []
+    for r in l:
+        si = []
+        for k in range(1, len(r) + 1):
+            si.append(ndcg_at_k(r, k, method=0))
+        scores.append(si)
+
+    scores = np.array(scores)
+    print(np.mean(scores, axis=0))
+
+    c1 = len(data_test[(data_test['ix'] == 0) & (
+        data_test['target'] == 1)]['qid'].unique())
+
+    c1/len(data_test['qid'].unique())
