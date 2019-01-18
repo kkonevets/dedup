@@ -14,21 +14,15 @@ from sklearn.preprocessing import StandardScaler
 INFO_COLUMNS = ['qid', 'synid', 'fid', 'target']
 COLNAMES = INFO_COLUMNS + ['score', 'ix']
 
-samples, corpus, fid2text, sid2text, qid2text = {}, {}, {}, {}, {}
 
-
-def get_id2text(tag, ids):
-    global corpus
+def get_id2text(corpus, tag, ids):
     id2text = {}
     for _id, text in corpus[corpus[tag].isin(ids)][[tag, 'text']].values:
         id2text[_id] = text
     return id2text
 
 
-def input_data(train=True):
-    global samples, fid2text, sid2text, qid2text
-    cur_samples = samples[samples['train'] == int(train)]
-
+def input_data(cur_samples, fid2text, sid2text, qid2text):
     q_terms, d_terms = [], []
     rows = []
     for row in cur_samples.itertuples():
@@ -57,7 +51,7 @@ def input_data(train=True):
     return q_terms,  d_terms, values.values
 
 
-def worker(tup):
+def sim_worker(tup):
     q_terms, d_terms, info = tup
     q = ' '.join(q_terms)
     d = ' '.join(d_terms)
@@ -77,7 +71,7 @@ def get_similarity_features(data, output_file):
     vals = []
     with mp.Pool(mp.cpu_count(), maxtasksperchild=5000) as p:
         with tqdm(total=len(data[0])) as pbar:
-            for values, columns in tqdm(p.imap_unordered(worker, feeder(data))):
+            for values, columns in tqdm(p.imap_unordered(sim_worker, feeder(data))):
                 vals.append(values)
                 pbar.update()
 
@@ -190,7 +184,6 @@ def to_letor_example(train_sim_ftrs, test_sim_ftrs):
 
 
 def main():
-    global samples, corpus, fid2text, sid2text, qid2text
     samples = tools.load_samples('../data/dedup/samples.npz')
 
     # exclude samples not found in TOP
@@ -200,15 +193,15 @@ def main():
     qids_exclude = samples[samples['ix'] == -1]['qid'].unique()
     samples = samples[~samples['qid'].isin(qids_exclude)]
 
-    corpus = tools.load_samples('../data/dedup/corpus.npz')
-
     qids = samples[samples['synid'] == -1]['qid'].unique()
     sids = samples[samples['synid'] != -1]['synid'].unique()
     fids = samples['fid'].unique()
 
-    qid2text = get_id2text('qid', qids)
-    sid2text = get_id2text('synid', sids)
-    fid2text = get_id2text('fid', fids)
+    corpus = tools.load_samples('../data/dedup/corpus.npz')
+
+    qid2text = get_id2text(corpus, 'qid', qids)
+    sid2text = get_id2text(corpus, 'synid', sids)
+    fid2text = get_id2text(corpus, 'fid', fids)
 
     vals = corpus[corpus['train'] != 0]['text'].values
     informative_terms = set([w for s in vals for w in s.split()])
@@ -216,8 +209,10 @@ def main():
         for term in informative_terms:
             f.write(term + '\n')
 
-    train_data = input_data(True)
-    test_data = input_data(False)
+    train_data = input_data(
+        samples[samples['train'] == 1], fid2text, sid2text, qid2text)
+    test_data = input_data(
+        samples[samples['train'] == 0], fid2text, sid2text, qid2text)
     tools.do_pickle(train_data, '../data/dedup/train_data.pkl')
     tools.do_pickle(test_data, '../data/dedup/test_data.pkl')
 
@@ -226,6 +221,9 @@ def main():
     # train_data = tools.do_unpickle('../data/dedup/train_data.pkl')
     # test_data = tools.do_unpickle('../data/dedup/test_data.pkl')
 
+    to_example(train_data, '../data/dedup/train.tfrecord')
+    to_example(test_data, '../data/dedup/test.tfrecord')
+
     # sub_test = [v[:1000] for v in test_data]
     # vals, columns = test_sim_ftrs
     test_sim_ftrs = get_similarity_features(
@@ -233,15 +231,12 @@ def main():
     train_sim_ftrs = get_similarity_features(
         train_data, '../data/dedup/train_sim_ftrs.npz')
 
-    train_sim_ftrs = tools.load_samples(
-        '../data/dedup/train_sim_ftrs.npz', key='vals')
-    test_sim_ftrs = tools.load_samples(
-        '../data/dedup/test_sim_ftrs.npz', key='vals')
+    # train_sim_ftrs = tools.load_samples(
+    #     '../data/dedup/train_sim_ftrs.npz', key='vals')
+    # test_sim_ftrs = tools.load_samples(
+    #     '../data/dedup/test_sim_ftrs.npz', key='vals')
 
     save_letor_txt(train_sim_ftrs, test_sim_ftrs)
-
-    to_example(train_data, '../data/dedup/train.tfrecord')
-    to_example(test_data, '../data/dedup/test.tfrecord')
 
     to_letor_example(train_sim_ftrs, test_sim_ftrs)
 
