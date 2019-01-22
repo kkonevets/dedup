@@ -135,3 +135,25 @@ if __name__ == "__main__":
     temp = [1, 1, 1, 0, 1, 1, 0.63, 0.63, 0.63, 0.63, 0.63, 0.63]  # 0.73
     ndcg2 = np.mean(temp)
     print('ndcg2 %f' % ndcg2)
+
+    l = [[1, 0, 0, 0, 0, 0],
+         [1, 0, 0, 0, 0, 0],
+         [1, 0, 0, 0, 0, 0],
+         [0, 1, 0, 0, 0, 0],
+         [1, 0, 0, 0, 0, 0],
+         [0, 1, 0, 0, 0, 0],
+         [1, 0, 0, 0, 0, 0],
+         [1, 0, 0, 0, 0, 0],
+         [0, 0, 0, 0, 1, 0],
+         [0, 0, 1, 0, 0, 0],
+         [1, 0, 0, 0, 0, 0]]
+
+    scores = []
+    for r in l:
+        si = []
+        for k in range(1, len(r) + 1):
+            si.append(ndcg_at_k(r, k))
+        scores.append(si)
+
+    scores = np.array(scores)
+    print(np.mean(scores, axis=0))
