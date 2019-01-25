@@ -1,4 +1,5 @@
 import pandas as pd
+import tools
 
 from fuzzywuzzy import fuzz
 import jellyfish
@@ -36,8 +37,8 @@ def get_sim_features(q, d):
     ftrs['hamming'] = td.hamming.normalized_distance(q, d)
     ftrs['mlipns'] = td.mlipns.normalized_distance(q, d)
     ftrs['levenshtein'] = td.levenshtein.normalized_distance(q, d)
-    # ftrs['needleman_wunsch'] = td.needleman_wunsch.normalized_distance(q, d)
-    # ftrs['gotoh'] = td.gotoh.normalized_distance(q, d)
+    ftrs['needleman_wunsch'] = td.needleman_wunsch.normalized_distance(q, d)
+    ftrs['gotoh'] = td.gotoh.normalized_distance(q, d)
     ftrs['jaccard'] = td.jaccard.normalized_distance(q, d)
     ftrs['sorensen_dice'] = td.sorensen_dice.normalized_distance(q, d)
     ftrs['tversky'] = td.tversky.normalized_distance(q, d)
@@ -74,8 +75,8 @@ def get_sim_features(q, d):
 
 def get_extra_ftrs(q, d):
     ftrs = {}
-    ftrs['needleman_wunsch'] = td.needleman_wunsch.normalized_distance(q, d)
-    ftrs['gotoh'] = td.gotoh.normalized_distance(q, d)
+    # ftrs['needleman_wunsch'] = td.needleman_wunsch.normalized_distance(q, d)
+    # ftrs['gotoh'] = td.gotoh.normalized_distance(q, d)
     return ftrs
 
 

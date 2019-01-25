@@ -11,6 +11,8 @@ import multiprocessing as mp
 from itertools import islice
 from functools import partial
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics.pairwise import paired_cosine_distances
+from scipy.spatial.distance import cosine
 
 
 INFO_COLUMNS = ['qid', 'synid', 'fid', 'target']
@@ -64,6 +66,23 @@ def sim_worker(extra, tup):
     values = list(info) + list(ftrs.values())
     columns = COLNAMES + list(ftrs.keys())
     return values, columns
+
+
+def compute_tfidf_dists(train_data, test_data):
+    def get_dists(model, data, fname):
+        qs = [' '.join(q_terms) for q_terms in data[0]]
+        ds = [' '.join(d_terms) for d_terms in data[1]]
+        qvecs = model.transform(qs)
+        dvecs = model.transform(ds)
+
+        dists = paired_cosine_distances(qvecs, dvecs)
+        np.savez(fname, dists=dists)
+
+    tfidf_model = tools.do_unpickle('../data/dedup/tfidf_model.pkl')
+    get_dists(tfidf_model, train_data,
+              '../data/dedup/train_tfidf_cosine.npz')
+    get_dists(tfidf_model, test_data,
+              '../data/dedup/test_tfidf_cosine.npz')
 
 
 def get_similarity_features(data, output_file, extra=False):
@@ -135,7 +154,7 @@ def save_letor_txt(train_sim_ftrs, test_sim_ftrs, vali=False):
         hashtag = qst_train[:, :2]  # ['qid', 'synid']
         hashtag = pd.Series(map(tuple, hashtag))
         hash_train, hash_vali = train_test_split(
-            hashtag.unique(), test_size=0.05, random_state=42)
+            hashtag.unique(), test_size=0.1, random_state=42)
         cond = hashtag.isin(hash_train).values
         to_letor(X_train[cond], qst_train[cond],
                  '../data/dedup/train_letor.txt')
@@ -209,6 +228,11 @@ def load_sim_ftrs(with_extra=True):
     train_sim_ftrs = tools.load_samples(
         '../data/dedup/train_sim_ftrs.npz', key='vals')
 
+    test_tfidf_cos = np.load('../data/dedup/test_tfidf_cosine.npz')['dists']
+    train_tfidf_cos = np.load('../data/dedup/train_tfidf_cosine.npz')['dists']
+    test_sim_ftrs['tfidf_cos'] = test_tfidf_cos
+    train_sim_ftrs['tfidf_cos'] = train_tfidf_cos
+
     if with_extra:
         print("WARNING: Loading extra features!")
         test_extra = tools.load_samples(
@@ -264,8 +288,9 @@ def main():
 
     #########################################################################
 
-    # train_data = tools.do_unpickle('../data/dedup/train_data.pkl')
-    # test_data = tools.do_unpickle('../data/dedup/test_data.pkl')
+    train_data = tools.do_unpickle('../data/dedup/train_data.pkl')
+    test_data = tools.do_unpickle('../data/dedup/test_data.pkl')
+    compute_tfidf_dists(train_data, test_data)
 
     to_example(train_data, '../data/dedup/train.tfrecord')
     to_example(test_data, '../data/dedup/test.tfrecord')
@@ -276,16 +301,21 @@ def main():
         test_data, '../data/dedup/test_sim_ftrs.npz')
     train_sim_ftrs = get_similarity_features(
         train_data, '../data/dedup/train_sim_ftrs.npz')
-    test_extra = get_similarity_features(
-        test_data, '../data/dedup/test_sim_ftrs_extra.npz', True)
-    train_extra = get_similarity_features(
-        train_data, '../data/dedup/train_sim_ftrs_extra.npz', True)
+    # test_extra = get_similarity_features(
+    #     test_data, '../data/dedup/test_sim_ftrs_extra.npz', True)
+    # train_extra = get_similarity_features(
+    #     train_data, '../data/dedup/train_sim_ftrs_extra.npz', True)
 
-    train_sim_ftrs, test_sim_ftrs = load_sim_ftrs(with_extra=True)
+    train_sim_ftrs, test_sim_ftrs = load_sim_ftrs(with_extra=False)
 
     save_letor_txt(train_sim_ftrs, test_sim_ftrs, vali=True)
 
     # to_letor_example(train_sim_ftrs, test_sim_ftrs)
+
+    # output_file = '../data/dedup/test_sim_ftrs.npz'
+    # vals = test_sim_ftrs.values
+    # vals = np.array(vals, dtype=np.float32)
+    # np.savez(output_file, vals=vals, columns=test_sim_ftrs.columns)
 
 
 if __name__ == "__main__":

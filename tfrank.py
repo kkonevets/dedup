@@ -41,7 +41,7 @@ python3 tfrank.py \
 --test_path=$TEST \
 --output_dir=$OUTPUT_DIR \
 --train_batch_size=32 \
---num_train_steps=100000
+--num_train_steps=72000
 
 You can use TensorBoard to display the training results stored in $OUTPUT_DIR.
 """
