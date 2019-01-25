@@ -72,6 +72,13 @@ def get_sim_features(q, d):
     return ftrs
 
 
+def get_extra_ftrs(q, d):
+    ftrs = {}
+    ftrs['needleman_wunsch'] = td.needleman_wunsch.normalized_distance(q, d)
+    ftrs['gotoh'] = td.gotoh.normalized_distance(q, d)
+    return ftrs
+
+
 def compare(q1, d1, q2, d2):
     s1 = get_sim_features(q1, d1)
     s2 = get_sim_features(q2, d2)

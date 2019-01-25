@@ -40,8 +40,6 @@ python3 tfrank.py \
 --vali_path=$VALI \
 --test_path=$TEST \
 --output_dir=$OUTPUT_DIR \
---num_features=44 \
---list_size=6 \
 --train_batch_size=32 \
 --num_train_steps=100000
 
