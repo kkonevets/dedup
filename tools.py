@@ -38,7 +38,7 @@ unit_lookup = {
 stemmer = SnowballStemmer("russian", ignore_stopwords=True)
 
 
-def normalize(sent, stem=False, translit=False):
+def normalize(sent, stem=False, translit=True):
     tokens = normalize_v2(sent, translit)
     if stem:
         tokens = (stemmer.stem(t) for t in tokens)

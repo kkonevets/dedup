@@ -73,8 +73,6 @@ def get_tfidf():
 
     corpus_file = '../data/dedup/corpus.npz'
 
-    def normalize_wrap(x): return tools.normalize(x, stem=False, translit=True)
-
     def make_corpus():
         corpus = []
 
@@ -84,7 +82,7 @@ def get_tfidf():
             et = fup.id2et[_id]
             text = tools.constitute_text(et['name'], et, fup)
             corpus.append((_id, None, None, train,
-                           normalize_wrap(text)))
+                           tools.normalize(text)))
 
         subdf = samples[samples['synid'] != -1]
         subdf = subdf[['synid', 'train']].drop_duplicates()
@@ -92,12 +90,12 @@ def get_tfidf():
             name, et = sid2et[_id]
             text = tools.constitute_text(name, et, fup)
             corpus.append((None, _id, None, train,
-                           normalize_wrap(text)))
+                           tools.normalize(text)))
 
         for et in tqdm(upm.ets):
             text = tools.constitute_text(et['name'], et, upm)
             corpus.append((None, None, et['id'], None,
-                           normalize_wrap(text)))
+                           tools.normalize(text)))
 
         corpus = np.array(corpus)
         columns = ['qid', 'synid', 'fid', 'train', 'text']
@@ -114,7 +112,7 @@ def get_tfidf():
     tools.do_pickle(model, '../data/dedup/tfidf_model.pkl')
 
     # sent = 'молоко пастеризованное домик в деревне'
-    # model.transform([tonormalize_wrap(sent)])
+    # model.transform([tools.normalize(sent)])
 
 
 if __name__ == "__main__":

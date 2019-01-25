@@ -208,7 +208,7 @@ def solr_sample():
     np.savez('../data/dedup/samples.npz',
              samples=samples.values, columns=samples.columns)
 
-    # save_positions(positions)
+    save_positions(positions, nrows)
 
 
 if __name__ == "__main__":
