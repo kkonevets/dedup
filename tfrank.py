@@ -41,7 +41,7 @@ python3 tfrank.py \
 --test_path=$TEST \
 --output_dir=$OUTPUT_DIR \
 --train_batch_size=32 \
---num_train_steps=72000
+--num_train_steps=150000
 
 You can use TensorBoard to display the training results stored in $OUTPUT_DIR.
 """
@@ -69,7 +69,7 @@ flags.DEFINE_float("dropout_rate", 0.5,
 flags.DEFINE_list("hidden_layer_dims", ["256", "128", "64"],
                   "Sizes for hidden layers.")
 
-flags.DEFINE_integer("num_features", 44, "Number of features per document.")
+flags.DEFINE_integer("num_features", 49, "Number of features per document.")
 flags.DEFINE_integer("list_size", 6, "List size used for training.")
 flags.DEFINE_integer("group_size", 1, "Group size used in score function.")
 

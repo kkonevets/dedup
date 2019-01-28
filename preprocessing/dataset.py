@@ -12,7 +12,9 @@ from itertools import islice
 from functools import partial
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics.pairwise import paired_cosine_distances
+from sklearn.metrics.pairwise import pairwise_distances
 from scipy.spatial.distance import cosine
+from gensim.models import FastText
 
 
 INFO_COLUMNS = ['qid', 'synid', 'fid', 'target']
@@ -68,23 +70,6 @@ def sim_worker(extra, tup):
     return values, columns
 
 
-def compute_tfidf_dists(train_data, test_data):
-    def get_dists(model, data, fname):
-        qs = [' '.join(q_terms) for q_terms in data[0]]
-        ds = [' '.join(d_terms) for d_terms in data[1]]
-        qvecs = model.transform(qs)
-        dvecs = model.transform(ds)
-
-        dists = paired_cosine_distances(qvecs, dvecs)
-        np.savez(fname, dists=dists)
-
-    tfidf_model = tools.do_unpickle('../data/dedup/tfidf_model.pkl')
-    get_dists(tfidf_model, train_data,
-              '../data/dedup/train_tfidf_cosine.npz')
-    get_dists(tfidf_model, test_data,
-              '../data/dedup/test_tfidf_cosine.npz')
-
-
 def get_similarity_features(data, output_file, extra=False):
     columns = None
 
@@ -104,6 +89,55 @@ def get_similarity_features(data, output_file, extra=False):
     vals = np.array(vals, dtype=np.float32)
     np.savez(output_file, vals=vals, columns=columns)
     return vals, columns
+
+
+def compute_tfidf_dists(train_data, test_data):
+    tfidf_model = tools.do_unpickle('../data/dedup/tfidf_model.pkl')
+
+    def get_dists(data, fname):
+        qs = [' '.join(q_terms) for q_terms in data[0]]
+        ds = [' '.join(d_terms) for d_terms in data[1]]
+        qvecs = tfidf_model.transform(qs)
+        dvecs = tfidf_model.transform(ds)
+
+        dists = paired_cosine_distances(qvecs, dvecs)
+        ixs = data[2][:, :3]
+        np.savez(fname, dists=np.hstack([ixs, np.array([dists]).T]))
+
+    get_dists(train_data, '../data/dedup/train_tfidf_cosine.npz')
+    get_dists(test_data, '../data/dedup/test_tfidf_cosine.npz')
+
+
+def compute_fasttext_dists():
+    train_data_raw = tools.do_unpickle('../data/dedup/train_data_raw.pkl')
+    test_data_raw = tools.do_unpickle('../data/dedup/test_data_raw.pkl')
+
+    model = FastText.load_fasttext_format('../data/dedup/cc.ru.300.bin')
+    # model.wv.most_similar('ватт')
+
+    def get_dists(data, fname):
+        dists = []
+        for q_terms, d_terms, _ixs in tqdm(zip(data[0], data[1], data[2]), total=len(data[0])):
+            qvecs = [model.wv[term] for term in q_terms if
+                     term.isalpha() and len(term) > 2 and term in model.wv]
+            dvecs = [model.wv[term] for term in d_terms if
+                     term.isalpha() and len(term) > 2 and term in model.wv]
+            qmean = np.mean(qvecs, axis=0)
+            dmean = np.mean(dvecs, axis=0)
+            if len(qvecs) and len(dvecs):
+                paired = pairwise_distances(qvecs, dvecs, metric='cosine')
+                mins = np.min(paired, axis=1)
+                mean, median, std = np.mean(mins), \
+                    np.median(mins), np.std(mins)
+            else:
+                mean, median, std = -1, -1, -1
+            dists.append(list(_ixs[:3]) + [cosine(qmean, dmean),
+                                           mean, median, std])
+        np.savez(fname, dists=dists)
+
+    get_dists(train_data_raw, '../data/dedup/train_fasttext_cosine.npz')
+    get_dists(test_data_raw, '../data/dedup/test_fasttext_cosine.npz')
+
 
 #########################################################################
 
@@ -222,16 +256,47 @@ def to_letor_example(train_sim_ftrs, test_sim_ftrs):
     save_one(X_test, qst_test, '../data/dedup/test_letor.tfrecord')
 
 
+def dists_from_numpy(fname, tag):
+    df = np.load(fname)['dists']
+    df = pd.DataFrame(df)
+    columns = ['qid', 'synid', 'fid']
+    columns += ['%s%d' % (tag, i) for i in range(df.shape[1]-3)]
+    df.columns = columns
+    df.drop_duplicates(['qid', 'synid', 'fid'], inplace=True)
+    return df
+
+
 def load_sim_ftrs(with_extra=True):
     test_sim_ftrs = tools.load_samples(
         '../data/dedup/test_sim_ftrs.npz', key='vals')
     train_sim_ftrs = tools.load_samples(
         '../data/dedup/train_sim_ftrs.npz', key='vals')
 
-    test_tfidf_cos = np.load('../data/dedup/test_tfidf_cosine.npz')['dists']
-    train_tfidf_cos = np.load('../data/dedup/train_tfidf_cosine.npz')['dists']
-    test_sim_ftrs['tfidf_cos'] = test_tfidf_cos
-    train_sim_ftrs['tfidf_cos'] = train_tfidf_cos
+    test_sim_ftrs.drop_duplicates(['qid', 'synid', 'fid'], inplace=True)
+    train_sim_ftrs.drop_duplicates(['qid', 'synid', 'fid'], inplace=True)
+
+    test_tfidf_cos = dists_from_numpy(
+        '../data/dedup/test_tfidf_cosine.npz', 'tfidf')
+    train_tfidf_cos = dists_from_numpy(
+        '../data/dedup/train_tfidf_cosine.npz', 'tfidf')
+
+    test_sim_ftrs = test_sim_ftrs.merge(
+        test_tfidf_cos, on=['qid', 'synid', 'fid'])
+    train_sim_ftrs = train_sim_ftrs.merge(
+        train_tfidf_cos, on=['qid', 'synid', 'fid'])
+
+    test_ft_cos = dists_from_numpy(
+        '../data/dedup/test_fasttext_cosine.npz', 'ft')
+    train_ft_cos = dists_from_numpy(
+        '../data/dedup/train_fasttext_cosine.npz', 'ft')
+
+    test_sim_ftrs = test_sim_ftrs.merge(
+        test_ft_cos, on=['qid', 'synid', 'fid'])
+    train_sim_ftrs = train_sim_ftrs.merge(
+        train_ft_cos, on=['qid', 'synid', 'fid'])
+
+    test_sim_ftrs.fillna(-1, inplace=True)
+    train_sim_ftrs.fillna(-1, inplace=True)
 
     if with_extra:
         print("WARNING: Loading extra features!")
@@ -267,7 +332,9 @@ def main():
     sids = samples[samples['synid'] != -1]['synid'].unique()
     fids = samples['fid'].unique()
 
-    corpus = tools.load_samples('../data/dedup/corpus.npz')
+    raw = True
+    corpus = tools.load_samples(
+        '../data/dedup/corpus%s.npz' % ('_raw' if raw else ''))
 
     qid2text = get_id2text(corpus, 'qid', qids)
     sid2text = get_id2text(corpus, 'synid', sids)
@@ -283,8 +350,10 @@ def main():
         samples[samples['train'] == 1], fid2text, sid2text, qid2text)
     test_data = input_data(
         samples[samples['train'] == 0], fid2text, sid2text, qid2text)
-    tools.do_pickle(train_data, '../data/dedup/train_data.pkl')
-    tools.do_pickle(test_data, '../data/dedup/test_data.pkl')
+    tools.do_pickle(train_data, '../data/dedup/train_data%s.pkl' %
+                    ('_raw' if raw else ''))
+    tools.do_pickle(test_data, '../data/dedup/test_data%s.pkl' %
+                    ('_raw' if raw else ''))
 
     #########################################################################
 
@@ -292,8 +361,8 @@ def main():
     test_data = tools.do_unpickle('../data/dedup/test_data.pkl')
     compute_tfidf_dists(train_data, test_data)
 
-    to_example(train_data, '../data/dedup/train.tfrecord')
-    to_example(test_data, '../data/dedup/test.tfrecord')
+    # to_example(train_data, '../data/dedup/train.tfrecord')
+    # to_example(test_data, '../data/dedup/test.tfrecord')
 
     # sub_test = [v[:1000] for v in test_data]
     # vals, columns = test_sim_ftrs
