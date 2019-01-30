@@ -10,6 +10,7 @@ from textblob.tokenizers import WordTokenizer
 import string
 from nltk.stem.snowball import SnowballStemmer
 import cyrtranslit
+import paramiko
 
 # from tokenizer import tokenize
 
@@ -233,3 +234,12 @@ def load_samples(filename, key='samples'):
     samples = pd.DataFrame(npzfile[key])
     samples.columns = npzfile['columns']
     return samples
+
+
+def scp(host, user, localfile, remotefile):
+    transport = paramiko.Transport((host, 22))
+    transport.connect(username=user, pkey='~/.ssh/id_rsa')
+    sftp = paramiko.SFTPClient.from_transport(transport)
+    sftp.put(localfile, remotefile)
+    sftp.close()
+    transport.close()

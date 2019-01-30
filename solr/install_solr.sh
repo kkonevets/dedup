@@ -4,10 +4,14 @@
 
 docker stop solonom || true && docker rm solonom || true
 
-docker run --name solonom -d -p 8983:8983 -t -v /home/guyos/D/Documents/data/solr:/opt/solr/mydata solr
+schema="http://localhost:8983/solr/nom_core/schema"
+
+cd ../..
+docker run --name solonom -d -p 8983:8983 -t -v $PWD/data/solr:/opt/solr/mydata solr
+cd dedup/solr/
 docker exec -it --user=solr solonom bin/solr create_core -c nom_core
 
-docker cp ./solr/stopwords_ru.txt solonom:/opt/solr/server/solr/nom_core/conf/lang/stopwords_ru.txt
+docker cp stopwords_ru.txt solonom:/opt/solr/server/solr/nom_core/conf/lang/stopwords_ru.txt
 
       # "tokenizer": {
       #   "class": "solr.StandardTokenizerFactory"
@@ -50,7 +54,7 @@ curl -X POST -H 'Content-type:application/json' --data-binary '{
       ]
     }
   }
-}' http://c:8983/solr/nom_core/schema
+}' $schema
 
 
 # "add-field": {"name":"my_text_ru", "type":"text_general_ru", "indexed":true, "multiValued":true, "stored":false},
@@ -68,15 +72,13 @@ curl -X POST -H 'Content-type:application/json' --data-binary \
 "add-field": {"name":"manufacturerId", "type":"plong", "multiValued":false, "indexed":true, "stored":true},
 "add-field": {"name":"barcodes", "type":"text_general_ru", "multiValued":true, "indexed":true, "stored":true},
 "add-field": {"name":"manufacturerCode", "type":"text_general_ru", "multiValued":false, "stored":true}
-}' \
-http://c:8983/solr/nom_core/schema
+}' $schema
 
 # curl -X POST -H 'Content-type:application/json' --data-binary \
 # '{
 # "add-copy-field" : {"source":"name","dest":"my_text_ru"},
 # "add-copy-field" : {"source":"brand","dest":"my_text_ru"}
-# }' \
-# http://c:8983/solr/nom_core/schema
+# }' $schema
 
 
 docker exec -it --user=solr solonom bin/post -c nom_core  /opt/solr/mydata/master_data.json

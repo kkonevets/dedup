@@ -20,10 +20,12 @@ from sklearn.model_selection import train_test_split
 matplotlib.use('agg')
 
 prog = re.compile("[\\W]", re.UNICODE)
+MONGO_HOST = '10.70.6.154'  # 'c'
+SOLR_HOST = '10.72.100.255'
 
 
 def master_stat():
-    client = MongoClient()
+    client = MongoClient(MONGO_HOST)
     db = client['master']
     total = db.etalons.count_documents({})
 
@@ -51,8 +53,8 @@ def master_stat():
 
 def query_solr(text, rows=1):
     quoted = quote('name:(%s)^2 || synonyms:(%s)' % (text, text))
-    q = 'http://c:8983/solr/nom_core/select?' \
-        'q=%s&rows=%d&fl=*,score' % (quoted, rows)
+    q = 'http://%s:8983/solr/nom_core/select?' \
+        'q=%s&rows=%d&fl=*,score' % (SOLR_HOST, quoted, rows)
     r = urllib.request.urlopen(q).read()
     docs = json.loads(r)['response']['docs']
     return docs
@@ -100,6 +102,7 @@ def get_prior(anew=False):
     else:
         prior = pd.read_csv(prior_file, header=None, index_col=0).loc[:, 1]
 
+    assert prior.index.isin([-1, -2]).sum() == 2
     return prior
 
 
@@ -166,7 +169,7 @@ def sample_one(found, et, nchoices, prior, synid):
     return values
 
 
-def query_one(id2brand, nrows, nchoices, prior, positions, samples, et):
+def query_one(id2brand, nrows, nchoices, prior, et):
     et['id'] = et.pop('_id')
     if not '#single' in et['comment']:
         return
@@ -176,12 +179,14 @@ def query_one(id2brand, nrows, nchoices, prior, positions, samples, et):
     if bid:
         bname = id2brand[bid]['name']
 
-    client = MongoClient()
+    client = MongoClient(MONGO_HOST)
     mdb = client['master']
     met = mdb.etalons.find_one(
         {'_id': et['srcId']}, projection=['name', 'synonyms'])
     msyns = ' '.join([s['name'] for s in met.get('synonyms', [])])
     msplited = prog.sub(' ', met['name'] + ' ' + msyns).lower().split()
+
+    samples, positions = [], []
 
     for syn in et.get('synonyms', []):
         curname = syn['name'] + ' ' + bname
@@ -202,33 +207,34 @@ def query_one(id2brand, nrows, nchoices, prior, positions, samples, et):
         append_position(positions, found, et, curname,
                         met['name'], bname, bcs)
 
+    return samples, positions
+
 
 def solr_sample():
-    client = MongoClient()
+    client = MongoClient(MONGO_HOST)
     db = client['1cfreshv4']
-    total = db.etalons.count_documents({})
+    cond = {"comment": {'$regex': ".*#single.*"}}
+    total = db.etalons.count_documents(cond)
     id2brand = {c['_id']: c for c in db.brands.find({}, projection=['name'])}
 
-    positions = []
+    positions, samples = [], []
     nrows = 100
     nchoices = 5
     np.random.seed(0)
 
-    samples = []
     prior = get_prior(anew=False)
-    assert prior.index.isin([-1, -2]).sum() == 2
 
-    wraper = partial(query_one, id2brand, nrows,
-                     nchoices, prior, positions, samples)
+    wraper = partial(query_one, id2brand, nrows, nchoices, prior)
 
-    iterator = db.etalons.find({})
-    with mp.Pool(mp.cpu_count(), maxtasksperchild=100000) as p:
+    iterator = db.etalons.find(cond)
+    with mp.Pool(mp.cpu_count()) as p:  # maxtasksperchild=5000
         with tqdm(total=total) as pbar:
-            for _ in tqdm(p.imap_unordered(wraper, iterator)):
+            for samps, poss in tqdm(p.imap_unordered(wraper, iterator)):
+                samples += samps
+                positions += poss
                 pbar.update()
-
-        # if len(positions) > 1000:
-        #     break
+                # if len(positions) > 1000:
+                #     break
 
     # npzfile = np.load('../data/dedup/samples.npz')
     # samples = npzfile['samples']
