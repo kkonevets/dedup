@@ -30,7 +30,7 @@ y_test = data_test['target']
 #########################################################################
 
 params = {'n_estimators': 500, 'n_jobs': -1,  # 1000 best
-          'max_depth': 10,  # 10 best
+          'max_depth': 6,  # 10 best
           'learning_rate': 0.1,  # !!!!!!!!!!!!!!!
           #   'min_child_weight': 1,
           #   'gamma': 3,
@@ -44,7 +44,7 @@ model.fit(X_train, y_train, verbose=True, early_stopping_rounds=10,
           eval_set=[(X_test, y_test)], eval_metric='logloss')
 
 
-def predict(model, X, y, threshold=0.5):
+def predict(model, X, y, threshold=0.35):
     c = Counter(y)
     probs = model.predict_proba(X)
     y_pred = (probs[:, 1] >= threshold).astype(int)
@@ -57,3 +57,4 @@ def predict(model, X, y, threshold=0.5):
 _ = predict(model, X_train, y_train)
 y_pred = predict(model, X_test, y_test)
 cm = confusion_matrix(y_test, y_pred)
+print(cm)

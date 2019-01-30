@@ -53,29 +53,30 @@ curl -X POST -H 'Content-type:application/json' --data-binary '{
 }' http://c:8983/solr/nom_core/schema
 
 
+# "add-field": {"name":"my_text_ru", "type":"text_general_ru", "indexed":true, "multiValued":true, "stored":false},
+
 curl -X POST -H 'Content-type:application/json' --data-binary \
 '{
-"add-field": {"name":"my_text_ru", "type":"text_general_ru", "indexed":true, "multiValued":true, "stored":false},
+"add-field": {"name":"name", "type":"text_general_ru", "indexed":true, "multiValued":false, "stored":true},
+"add-field": {"name":"synonyms", "type":"text_general_ru", "indexed":true, "multiValued":false, "stored":true},
+
+"add-field": {"name":"manufacturer", "type":"text_general_ru", "multiValued":false, "stored":true},
+"add-field": {"name":"unitName", "type":"text_general_ru", "multiValued":false, "stored":true},
+
 "add-field": {"name":"categoryId", "type":"plong", "multiValued":false, "indexed":true, "stored":true},
 "add-field": {"name":"brandId", "type":"plong", "multiValued":false, "indexed":true, "stored":true},
 "add-field": {"name":"manufacturerId", "type":"plong", "multiValued":false, "indexed":true, "stored":true},
 "add-field": {"name":"barcodes", "type":"text_general_ru", "multiValued":true, "indexed":true, "stored":true},
-"add-field": {"name":"name", "type":"text_general_ru", "multiValued":false, "stored":true},
-"add-field": {"name":"brand", "type":"text_general_ru", "multiValued":false, "stored":true},
-"add-field": {"name":"manufacturer", "type":"text_general_ru", "multiValued":false, "stored":true},
-"add-field": {"name":"unitName", "type":"text_general_ru", "multiValued":false,
-"stored":true},
 "add-field": {"name":"manufacturerCode", "type":"text_general_ru", "multiValued":false, "stored":true}
-
 }' \
 http://c:8983/solr/nom_core/schema
 
-curl -X POST -H 'Content-type:application/json' --data-binary \
-'{
-"add-copy-field" : {"source":"name","dest":"my_text_ru"},
-"add-copy-field" : {"source":"brand","dest":"my_text_ru"}
-}' \
-http://c:8983/solr/nom_core/schema
+# curl -X POST -H 'Content-type:application/json' --data-binary \
+# '{
+# "add-copy-field" : {"source":"name","dest":"my_text_ru"},
+# "add-copy-field" : {"source":"brand","dest":"my_text_ru"}
+# }' \
+# http://c:8983/solr/nom_core/schema
 
 
 docker exec -it --user=solr solonom bin/post -c nom_core  /opt/solr/mydata/master_data.json

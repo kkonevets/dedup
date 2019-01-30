@@ -4,35 +4,58 @@ import urllib
 import string
 from tqdm import tqdm
 import pandas as pd
+import multiprocessing as mp
 from urllib.parse import quote
 import pickle
 import matplotlib
 import numpy as np
 import pandas as pd
+import re
+from functools import partial
 from collections import Counter
+from pymongo import MongoClient
+import string
 from sklearn.model_selection import train_test_split
 
 matplotlib.use('agg')
 
+prog = re.compile("[\\W]", re.UNICODE)
 
-def query_solr(text, rows=1, exclude=[]):
-    q = 'http://c:8983/solr/nom_core/select?df=my_text_ru' \
-        '&q=%s&rows=%d&fl=*,score' % (quote(text), rows)
+
+def master_stat():
+    client = MongoClient()
+    db = client['master']
+    total = db.etalons.count_documents({})
+
+    iterator = db.etalons.find({}, projection=['id', 'name', 'synonyms'])
+    ets = []
+    nocommon = set()
+    for et in tqdm(iterator, total=total):
+        nsplited = prog.sub(' ', et['name']).lower().split()
+        name = ' '.join(nsplited)
+        syns = []
+        for s in et.get('synonyms', []):
+            splited = prog.sub(' ', s['name']).lower().split()
+            sname = ' '.join(splited)
+            common = set(nsplited).intersection(splited)
+            if sname != name and len(splited) > 2:
+                if len(common):
+                    syns.append(s)
+                else:
+                    nocommon.update([et['_id']])
+        if not syns:
+            continue
+        et['synonyms'] = syns
+        ets.append(et)
+
+
+def query_solr(text, rows=1):
+    quoted = quote('name:(%s)^2 || synonyms:(%s)' % (text, text))
+    q = 'http://c:8983/solr/nom_core/select?' \
+        'q=%s&rows=%d&fl=*,score' % (quoted, rows)
     r = urllib.request.urlopen(q).read()
     docs = json.loads(r)['response']['docs']
     return docs
-
-
-def save_mid2et(singles):
-    sids = {et['srcId'] for et in singles}
-    upm = tools.load_master()
-    id2et = {}
-    for et in upm.ets:
-        if et['id'] in sids:
-            id2et[et['id']] = et
-
-    with open('../data/dedup/mid2et.pkl', 'wb') as f:
-        pickle.dump(id2et, f)
 
 
 def save_positions(positions, nrows):
@@ -143,15 +166,48 @@ def sample_one(found, et, nchoices, prior, synid):
     return values
 
 
-def solr_sample():
-    with open('../data/1cfresh/1cfreshv4.json', 'r') as f:
-        fresh = json.load(f)
-        fup = tools.Updater(fresh)
-        singles = [et for et in fup.ets if '#single' in et['comment']]
+def query_one(id2brand, nrows, nchoices, prior, positions, samples, et):
+    et['id'] = et.pop('_id')
+    if not '#single' in et['comment']:
+        return
+    bcs = set([int(c) for c in et['barcodes']])
+    bid = et.get('brandId')
+    bname = ''
+    if bid:
+        bname = id2brand[bid]['name']
 
-    # save_mid2et(singles)
-    with open('../data/dedup/mid2et.pkl', 'rb') as f:
-        mid2et = pickle.load(f)
+    client = MongoClient()
+    mdb = client['master']
+    met = mdb.etalons.find_one(
+        {'_id': et['srcId']}, projection=['name', 'synonyms'])
+    msyns = ' '.join([s['name'] for s in met.get('synonyms', [])])
+    msplited = prog.sub(' ', met['name'] + ' ' + msyns).lower().split()
+
+    for syn in et.get('synonyms', []):
+        curname = syn['name'] + ' ' + bname
+        splited = prog.sub(' ', curname).lower().split()
+
+        common = set(msplited).intersection(splited)
+        if common == set() or len(splited) <= 2:
+            continue
+
+        curname = tools.normalize(curname)
+        if curname.strip() == '':
+            continue
+        found = query_solr(curname, nrows)
+
+        if len(found):
+            samples += sample_one(found, et, nchoices, prior, syn['id'])
+
+        append_position(positions, found, et, curname,
+                        met['name'], bname, bcs)
+
+
+def solr_sample():
+    client = MongoClient()
+    db = client['1cfreshv4']
+    total = db.etalons.count_documents({})
+    id2brand = {c['_id']: c for c in db.brands.find({}, projection=['name'])}
 
     positions = []
     nrows = 100
@@ -162,32 +218,14 @@ def solr_sample():
     prior = get_prior(anew=False)
     assert prior.index.isin([-1, -2]).sum() == 2
 
-    for et in tqdm(singles):
-        bcs = set([int(c) for c in et['barcodes']])
-        bid = et.get('brandId')
-        bname = ''
-        if bid:
-            bname = tools.normalize(fup.id2brand[bid]['name'])
+    wraper = partial(query_one, id2brand, nrows,
+                     nchoices, prior, positions, samples)
 
-        name = tools.normalize(et['name'])
-
-        met = mid2et[et['srcId']]
-        mname = tools.normalize(met['name'])
-
-        names = [(-1, name)] + [(s['id'], tools.normalize(s['name']))
-                                for s in et.get('synonyms', [])]
-        names = [n for n in names if n[1] != mname]
-
-        for synid, curname in names:
-            text = curname + ' ' + bname
-            if text.strip() == '':
-                continue
-            found = query_solr(text, nrows)
-
-            if len(found):
-                samples += sample_one(found, et, nchoices, prior, synid)
-
-            append_position(positions, found, et, curname, mname, bname, bcs)
+    iterator = db.etalons.find({})
+    with mp.Pool(mp.cpu_count(), maxtasksperchild=100000) as p:
+        with tqdm(total=total) as pbar:
+            for _ in tqdm(p.imap_unordered(wraper, iterator)):
+                pbar.update()
 
         # if len(positions) > 1000:
         #     break
