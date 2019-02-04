@@ -11,6 +11,7 @@ import string
 from nltk.stem.snowball import SnowballStemmer
 import cyrtranslit
 import paramiko
+from pymongo import MongoClient
 
 # from tokenizer import tokenize
 
@@ -243,3 +244,24 @@ def scp(host, user, localfile, remotefile):
     sftp.put(localfile, remotefile)
     sftp.close()
     transport.close()
+
+
+def feed2mongo(feed, dbname):
+    client = MongoClient()
+    client.drop_database(dbname)
+    db = client[dbname]
+
+    fdb = feed['Database']
+    if isinstance(fdb, list):
+        fdb = fdb[0]
+
+    for k, v in fdb.items():
+        if not isinstance(v, list):
+            continue
+        for el in v:
+            _id = el.pop('id', None)
+            if _id is not None:
+                el['_id'] = _id
+
+        if len(v):
+            db[k].insert_many(v)

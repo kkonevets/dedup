@@ -15,13 +15,14 @@ docker cp stopwords_ru.txt solonom:/opt/solr/server/solr/nom_core/conf/lang/stop
 
       # "tokenizer": {
       #   "class": "solr.StandardTokenizerFactory"
+      #   "class": "solr.WhitespaceTokenizerFactory"
       # },
 
-        # {
-        #   "class": "solr.PatternReplaceFilterFactory",
-        #   "pattern": "\\d+",
-        #   "replacement": ""
-        # },
+      # {
+      #   "class": "solr.PatternReplaceFilterFactory",
+      #   "pattern": "\\d+",
+      #   "replacement": ""
+      # },
 
 curl -X POST -H 'Content-type:application/json' --data-binary '{
   "add-field-type": {
@@ -55,6 +56,36 @@ curl -X POST -H 'Content-type:application/json' --data-binary '{
     }
   }
 }' $schema
+
+
+# curl -X POST -H 'Content-type:application/json' --data-binary '{
+#   "add-field-type": {
+#     "name": "text_general_ru",
+#     "class": "solr.TextField",
+#     "positionIncrementGap": "100",
+#     "analyzer": {
+#       "tokenizer": {
+#         "class": "solr.WhitespaceTokenizerFactory"
+#       },
+#       "filters": [
+#         {
+#           "class": "solr.LowerCaseFilterFactory"
+#         },
+#         {
+#           "class": "solr.StopFilterFactory",
+#           "ignoreCase": true,
+#           "words": "lang/stopwords_ru.txt",
+#           "format": "snowball"
+#         },
+#         {
+#           "class": "solr.EdgeNGramTokenizerFactory",
+#           "minGramSize": "3",
+#           "maxGramSize": "8"
+#         }
+#       ]
+#     }
+#   }
+# }' $schema
 
 
 # "add-field": {"name":"my_text_ru", "type":"text_general_ru", "indexed":true, "multiValued":true, "stored":false},

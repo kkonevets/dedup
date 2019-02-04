@@ -1,9 +1,7 @@
 import tools
 import json
 import urllib
-import string
 from tqdm import tqdm
-import pandas as pd
 import multiprocessing as mp
 from urllib.parse import quote
 import pickle
@@ -20,8 +18,11 @@ from sklearn.model_selection import train_test_split
 matplotlib.use('agg')
 
 prog = re.compile("[\\W]", re.UNICODE)
-MONGO_HOST = '10.70.6.154'  # 'c'
-SOLR_HOST = '10.72.100.255'
+
+c_HOST = '10.70.6.154'
+ml_HOST = '10.72.100.255'
+MONGO_HOST = c_HOST
+SOLR_HOST = ml_HOST
 
 
 def master_stat():
@@ -52,7 +53,7 @@ def master_stat():
 
 
 def query_solr(text, rows=1):
-    quoted = quote('name:(%s)^2 || synonyms:(%s)' % (text, text))
+    quoted = quote('name:(%s)^5 || synonyms:(%s)' % (text, text))
     q = 'http://%s:8983/solr/nom_core/select?' \
         'q=%s&rows=%d&fl=*,score' % (SOLR_HOST, quoted, rows)
     r = urllib.request.urlopen(q).read()
@@ -115,7 +116,7 @@ def append_position(positions, found, et, curname, mname, bname, bcs):
     for i, el in enumerate(found):
         curbcs = [int(c) for c in el.get('barcodes', [])]
         if len(bcs.intersection(curbcs)):
-            rec += [int(el['id']), el['name'], el.get('brand', ''), i]
+            rec += [int(el['id']), el.get('name', ''), el.get('brand', ''), i]
             positions.append(rec)
             break
 
@@ -227,7 +228,8 @@ def solr_sample():
     wraper = partial(query_one, id2brand, nrows, nchoices, prior)
 
     iterator = db.etalons.find(cond)
-    with mp.Pool(mp.cpu_count()) as p:  # maxtasksperchild=5000
+    nworkers = mp.cpu_count()
+    with mp.Pool(20) as p:  # maxtasksperchild=5000
         with tqdm(total=total) as pbar:
             for samps, poss in tqdm(p.imap_unordered(wraper, iterator)):
                 samples += samps
