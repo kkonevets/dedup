@@ -12,6 +12,7 @@ import re
 from functools import partial
 from collections import Counter
 from pymongo import MongoClient
+import pymongo
 import string
 from sklearn.model_selection import train_test_split
 
@@ -25,9 +26,9 @@ MONGO_HOST = c_HOST
 SOLR_HOST = ml_HOST
 
 
-def master_stat():
+def release_stat():
     client = MongoClient(MONGO_HOST)
-    db = client['master']
+    db = client['release']
     total = db.etalons.count_documents({})
 
     iterator = db.etalons.find({}, projection=['id', 'name', 'synonyms'])
@@ -172,8 +173,6 @@ def sample_one(found, et, nchoices, prior, synid):
 
 def query_one(id2brand, nrows, nchoices, prior, et):
     et['id'] = et.pop('_id')
-    if not '#single' in et['comment']:
-        return
     bcs = set([int(c) for c in et['barcodes']])
     bid = et.get('brandId')
     bname = ''
@@ -181,7 +180,7 @@ def query_one(id2brand, nrows, nchoices, prior, et):
         bname = id2brand[bid]['name']
 
     client = MongoClient(MONGO_HOST)
-    mdb = client['master']
+    mdb = client['release']
     met = mdb.etalons.find_one(
         {'_id': et['srcId']}, projection=['name', 'synonyms'])
     msyns = ' '.join([s['name'] for s in met.get('synonyms', [])])
@@ -211,11 +210,52 @@ def query_one(id2brand, nrows, nchoices, prior, et):
     return samples, positions
 
 
+def get_id2bc(dbname):
+    client = MongoClient(MONGO_HOST)
+    db = client[dbname]
+    total = db.etalons.count_documents({})
+    id2bc = []
+    for et in tqdm(db.etalons.find({}), total=total):
+        for bc in et.get('barcodes', []):
+            id2bc.append((et['_id'], int(bc)))
+
+    df = pd.DataFrame(id2bc)
+    df.columns = ('_id', 'barcode')
+
+    return df
+
+
+def get_existing(anew=False):
+    client = MongoClient(MONGO_HOST)
+    db = client['cache']
+    if anew:
+        fresh_df = get_id2bc('1cfreshv4')
+        fresh_df.columns = ('_id_fresh', 'barcode')
+        release_df = get_id2bc('release')
+        release_df.columns = ('_id_release', 'barcode')
+
+        merged = fresh_df.merge(release_df, how='inner', on='barcode')
+        counts = merged.groupby('_id_fresh').count()
+        cond = counts[counts['barcode'] == 1].index
+        merged = merged[merged['_id_fresh'].isin(cond)]
+
+        bulk = []
+        for _id_fresh, barcode, _id_release in merged.values:
+            bulk.append({'_id': int(_id_fresh),
+                         '_id_release': int(_id_release), 'barcode': int(barcode)})
+
+        db.drop_collection('1cfresh_existing')
+        db['1cfresh_existing'].insert_many(bulk)
+    else:
+        bulk = [el for el in db['1cfresh_existing'].find({})]
+        return bulk
+
+
 def solr_sample():
     client = MongoClient(MONGO_HOST)
     db = client['1cfreshv4']
-    cond = {"comment": {'$regex': ".*#single.*"}}
-    total = db.etalons.count_documents(cond)
+
+    existing = get_existing(anew=False)
     id2brand = {c['_id']: c for c in db.brands.find({}, projection=['name'])}
 
     positions, samples = [], []
@@ -227,11 +267,16 @@ def solr_sample():
 
     wraper = partial(query_one, id2brand, nrows, nchoices, prior)
 
-    iterator = db.etalons.find(cond)
+    def do_iterate():
+        for el in existing:
+            et = db.etalons.find_one({'_id': el['_id']})
+            et['srcId'] = el['_id_release']
+            yield et
+
     nworkers = mp.cpu_count()
     with mp.Pool(20) as p:  # maxtasksperchild=5000
-        with tqdm(total=total) as pbar:
-            for samps, poss in tqdm(p.imap_unordered(wraper, iterator)):
+        with tqdm(total=len(existing)) as pbar:
+            for samps, poss in tqdm(p.imap_unordered(wraper, do_iterate())):
                 samples += samps
                 positions += poss
                 pbar.update()

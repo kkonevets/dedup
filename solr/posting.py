@@ -7,7 +7,7 @@ import multiprocessing as mp
 from pymongo import MongoClient
 
 client = MongoClient()
-db = client['master']
+db = client['release']
 
 id2cat = {c['_id']: c for c in db.categories.find({}, projection=['name'])}
 id2brand = {c['_id']: c for c in db.brands.find({}, projection=['name'])}
@@ -94,7 +94,7 @@ def etalons_to_docs():
                 ets.append(new_et)
                 pbar.update()
 
-    with io.open('../data/solr/master_data.json', 'w', encoding='utf8') as f:
+    with io.open('../data/solr/release_data.json', 'w', encoding='utf8') as f:
         json.dump(ets, f, ensure_ascii=False)
 
 

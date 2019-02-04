@@ -112,4 +112,4 @@ curl -X POST -H 'Content-type:application/json' --data-binary \
 # }' $schema
 
 
-docker exec -it --user=solr solonom bin/post -c nom_core  /opt/solr/mydata/master_data.json
+docker exec -it --user=solr solonom bin/post -c nom_core  /opt/solr/mydata/release_data.json
