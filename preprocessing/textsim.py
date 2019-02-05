@@ -1,5 +1,7 @@
 import pandas as pd
 import tools
+import time
+from tqdm import tqdm
 
 from fuzzywuzzy import fuzz
 import jellyfish
@@ -10,6 +12,7 @@ from similarity.metric_lcs import MetricLCS
 from similarity.ngram import NGram
 from similarity.qgram import QGram
 import py_stringmatching as sm
+from pprint import pprint
 
 me = sm.MongeElkan()
 menlw = sm.MongeElkan(sim_func=sm.NeedlemanWunsch().get_raw_score)
@@ -21,6 +24,45 @@ damerau = Damerau()
 metric_lcs = MetricLCS()
 osa = OptimalStringAlignment()
 
+m = {'fuzz.ratio': fuzz.ratio,
+     'fuzz.partial_ratio': fuzz.partial_ratio,
+     'fuzz.token_sort_ratio': fuzz.token_sort_ratio,
+     'fuzz.token_set_ratio': fuzz.token_set_ratio,
+     'jellyfish.jaro_winkler': jellyfish.jaro_winkler,
+     'hamming': td.hamming.normalized_distance,
+     'mlipns': td.mlipns.normalized_distance,
+     'levenshtein': td.levenshtein.normalized_distance,
+     'needleman_wunsch': td.needleman_wunsch.normalized_distance,
+     'gotoh': td.gotoh.normalized_distance,
+     'jaccard': td.jaccard.normalized_distance,
+     'sorensen_dice': td.sorensen_dice.normalized_distance,
+     'tversky': td.tversky.normalized_distance,
+     'overlap': td.overlap.normalized_distance,
+     'cosine': td.cosine.normalized_distance,
+     'bag': td.bag.normalized_distance,
+     'lcsstr': td.lcsstr.normalized_distance,
+     'ratcliff': td.ratcliff_obershelp.normalized_distance,
+     'bz2_ncd': td.bz2_ncd,
+     'lzma_ncd': td.lzma_ncd.normalized_distance,
+     'rle_ncd': td.rle_ncd.normalized_distance,
+     'bwtrle_ncd': td.bwtrle_ncd.normalized_distance,
+     'zlib_ncd': td.zlib_ncd.normalized_distance,
+     'mra': td.mra.normalized_distance,
+     'editex': td.editex.normalized_distance,
+     'prefix': td.prefix.normalized_distance,
+     'postfix': td.postfix.normalized_distance,
+     'length': td.length.normalized_distance,
+     'identity': td.identity.normalized_distance,
+     'matrix': td.matrix.normalized_distance,
+     'damerau': damerau.distance,
+     'osa': osa.distance,
+     'metric_lcs': metric_lcs.distance,
+     'twogram': twogram.distance,
+     'threegram': threegram.distance,
+     'fourgram': fourgram.distance,
+     'qgram': qgram.distance,
+     }
+
 
 def get_sim_features(q, d):
     q_split = q.split()
@@ -28,45 +70,9 @@ def get_sim_features(q, d):
 
     frac = len(q)/len(d) if len(d) else 0
     ftrs = {'q_len': len(q), 'd_len': len(d), 'q/d': frac}
-    ftrs['fuzz.ratio'] = 1 - fuzz.ratio(q, d)/100
-    ftrs['fuzz.partial_ratio'] = 1 - fuzz.partial_ratio(q, d)/100
-    ftrs['fuzz.token_sort_ratio'] = 1 - fuzz.token_sort_ratio(q, d)/100
-    ftrs['fuzz.token_set_ratio'] = 1 - fuzz.token_set_ratio(q, d)/100
 
-    ftrs['jellyfish.jaro_winkler'] = 1-jellyfish.jaro_winkler(q, d)
-    ftrs['hamming'] = td.hamming.normalized_distance(q, d)
-    ftrs['mlipns'] = td.mlipns.normalized_distance(q, d)
-    ftrs['levenshtein'] = td.levenshtein.normalized_distance(q, d)
-    ftrs['needleman_wunsch'] = td.needleman_wunsch.normalized_distance(q, d)
-    ftrs['gotoh'] = td.gotoh.normalized_distance(q, d)
-    ftrs['jaccard'] = td.jaccard.normalized_distance(q, d)
-    ftrs['sorensen_dice'] = td.sorensen_dice.normalized_distance(q, d)
-    ftrs['tversky'] = td.tversky.normalized_distance(q, d)
-    ftrs['overlap'] = td.overlap.normalized_distance(q, d)
-    ftrs['cosine'] = td.cosine.normalized_distance(q, d)
-    ftrs['bag'] = td.bag.normalized_distance(q, d)
-    ftrs['lcsstr'] = td.lcsstr.normalized_distance(q, d)
-    ftrs['ratcliff'] = td.ratcliff_obershelp.normalized_distance(q, d)
-    ftrs['bz2_ncd'] = td.bz2_ncd(q, d)
-    ftrs['lzma_ncd'] = td.lzma_ncd.normalized_distance(q, d)
-    ftrs['rle_ncd'] = td.rle_ncd.normalized_distance(q, d)
-    ftrs['bwtrle_ncd'] = td.bwtrle_ncd.normalized_distance(q, d)
-    ftrs['zlib_ncd'] = td.zlib_ncd.normalized_distance(q, d)
-    ftrs['mra'] = td.mra.normalized_distance(q, d)
-    ftrs['editex'] = td.editex.normalized_distance(q, d)
-    ftrs['prefix'] = td.prefix.normalized_distance(q, d)
-    ftrs['postfix'] = td.postfix.normalized_distance(q, d)
-    ftrs['length'] = td.length.normalized_distance(q, d)
-    ftrs['identity'] = td.identity.normalized_distance(q, d)
-    ftrs['matrix'] = td.matrix.normalized_distance(q, d)
+    ftrs.update({k: f(q, d) for k, f in m.items()})
 
-    ftrs['damerau'] = damerau.distance(q, d)
-    ftrs['osa'] = osa.distance(q, d)
-    ftrs['metric_lcs'] = metric_lcs.distance(q, d)
-    ftrs['twogram'] = twogram.distance(q, d)
-    ftrs['threegram'] = threegram.distance(q, d)
-    ftrs['fourgram'] = fourgram.distance(q, d)
-    ftrs['qgram'] = qgram.distance(q, d)
     ftrs['me.get_raw_score'] = me.get_raw_score(q_split, d_split)
     ftrs['menlw'] = menlw.get_raw_score(q_split, d_split)
 
@@ -75,8 +81,8 @@ def get_sim_features(q, d):
 
 def get_extra_ftrs(q, d):
     ftrs = {}
-    # ftrs['needleman_wunsch'] = td.needleman_wunsch.normalized_distance(q, d)
-    # ftrs['gotoh'] = td.gotoh.normalized_distance(q, d)
+    # 'needleman_wunsch': td.needleman_wunsch.normalized_distance
+    # 'gotoh': td.gotoh.normalized_distance
     return ftrs
 
 
@@ -91,7 +97,47 @@ def compare(q1, d1, q2, d2):
     return df
 
 
-# q = "мама папа кошка дом"
-# d = "мама дом папа кошка"
+def compute(fn, q, d):
+    start = time.time()
+    fn(q, d)
+    end = time.time()
+    return end - start
 
-# get_sim_features(q, d)
+
+def performance():
+    corpus = tools.load_samples('../data/dedup/corpus.npz')
+
+    times = {}
+    d = 'test'
+    for q in tqdm(corpus['text'].values[:1000]):
+        for k, fn in m.items():
+            d_split = d.split()
+
+            t = compute(fn, q, d)
+
+            t_prev = times.get(k, 0)
+            times[k] = t_prev + t
+
+        q_split = q.split()
+        t = compute(me.get_raw_score, q_split, d_split)
+        t_prev = times.get(k, 0)
+        times['me.get_raw_score'] = t_prev + t
+
+        t = compute(menlw.get_raw_score, q_split, d_split)
+        t_prev = times.get(k, 0)
+        times['menlw.get_raw_score'] = t_prev + t
+
+        d = q
+
+    times = pd.DataFrame.from_dict(times, orient='index')
+    times.columns = ('time',)
+    times.sort_values('time', inplace=True, ascending=False)
+    print(times)
+
+
+def test():
+    q = 'молоко'
+    d = 'малока'
+    s = get_sim_features(q, d)
+    df = pd.DataFrame.from_dict(s, orient='index')
+    print(df)

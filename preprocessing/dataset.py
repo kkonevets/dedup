@@ -323,7 +323,7 @@ def main():
 
     # exclude samples not found in TOP
     synids_exclude = set(samples[samples['ix'] == -1]['synid'].unique())
-    synids_exclude.remove(-1)
+    synids_exclude.discard(-1)
     samples = samples[~samples['synid'].isin(synids_exclude)]
     qids_exclude = samples[samples['ix'] == -1]['qid'].unique()
     samples = samples[~samples['qid'].isin(qids_exclude)]
@@ -360,6 +360,8 @@ def main():
     train_data = tools.do_unpickle('../data/dedup/train_data.pkl')
     test_data = tools.do_unpickle('../data/dedup/test_data.pkl')
     compute_tfidf_dists(train_data, test_data)
+
+    compute_fasttext_dists()
 
     # to_example(train_data, '../data/dedup/train.tfrecord')
     # to_example(test_data, '../data/dedup/test.tfrecord')

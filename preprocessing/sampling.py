@@ -235,14 +235,13 @@ def get_existing(anew=False):
         release_df.columns = ('_id_release', 'barcode')
 
         merged = fresh_df.merge(release_df, how='inner', on='barcode')
-        counts = merged.groupby('_id_fresh').count()
-        cond = counts[counts['barcode'] == 1].index
-        merged = merged[merged['_id_fresh'].isin(cond)]
+        merged = merged.groupby('_id_fresh').filter(lambda x: len(x) == 1)
 
         bulk = []
         for _id_fresh, barcode, _id_release in merged.values:
             bulk.append({'_id': int(_id_fresh),
-                         '_id_release': int(_id_release), 'barcode': int(barcode)})
+                         '_id_release': int(_id_release),
+                         'barcode': int(barcode)})
 
         db.drop_collection('1cfresh_existing')
         db['1cfresh_existing'].insert_many(bulk)

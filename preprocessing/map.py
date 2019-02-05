@@ -33,19 +33,19 @@ def get_tfidf():
     '''
     Build tf-idf model using master data and 1c-Fresh train data
     '''
-    with open('../data/1cfresh/1cfreshv4.json', 'r') as f:
-        fresh = json.load(f)
-        fup = tools.Updater(fresh)
-        sid2et = {s['id']: (s['name'], e) for e in fup.ets
-                  for s in e.get('synonyms', [])}
-
     client = MongoClient()
-    dbm = client['release']
+    db = client['1cfreshv4']
+    mdb = client['release']
 
-    upm = None
+    id2brand = {c['_id']: c for c in db.brands.find({}, projection=['name'])}
+    mid2brand = {c['_id']: c for c in mdb.brands.find({}, projection=['name'])}
+
+    sid2et = {s['id']: (s['name'], e) for e in db.etalons.find({})
+              for s in e.get('synonyms', [])}
+
     samples = tools.load_samples('../data/dedup/samples.npz')
 
-    translit = False
+    translit = True
     if translit:
         corpus_file = '../data/dedup/corpus.npz'
     else:
@@ -58,8 +58,8 @@ def get_tfidf():
         subdf = samples[samples['synid'] == -1]
         subdf = subdf[['qid', 'train']].drop_duplicates()
         for _id, train in tqdm(subdf.values):
-            et = fup.id2et[_id]
-            text = tools.constitute_text(et['name'], et, fup)
+            et = db.etalons.find_one({'_id': _id})
+            text = tools.constitute_text(et['name'], et, id2brand)
             corpus.append((_id, None, None, train,
                            tools.normalize(text, translit=translit)))
 
@@ -67,13 +67,14 @@ def get_tfidf():
         subdf = subdf[['synid', 'train']].drop_duplicates()
         for _id, train in tqdm(subdf.values):
             name, et = sid2et[_id]
-            text = tools.constitute_text(name, et, fup)
+            text = tools.constitute_text(name, et, id2brand)
             corpus.append((None, _id, None, train,
                            tools.normalize(text, translit=translit)))
 
-        for et in tqdm(upm.ets):
-            text = tools.constitute_text(et['name'], et, upm)
-            corpus.append((None, None, et['id'], None,
+        total = mdb.etalons.count_documents({})
+        for et in tqdm(mdb.etalons.find({}), total=total):
+            text = tools.constitute_text(et['name'], et, mid2brand)
+            corpus.append((None, None, et['_id'], None,
                            tools.normalize(text, translit=translit)))
 
         corpus = np.array(corpus)
@@ -106,5 +107,3 @@ if __name__ == "__main__":
     # vectorizer = TfidfVectorizer(token_pattern=r"(?u)\S+")
     # X = vectorizer.fit_transform(corpus)
     # print(vectorizer.get_feature_names())
-
-    1

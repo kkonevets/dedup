@@ -11,6 +11,7 @@ import string
 from nltk.stem.snowball import SnowballStemmer
 import cyrtranslit
 import paramiko
+import time
 from pymongo import MongoClient
 
 # from tokenizer import tokenize
@@ -220,11 +221,11 @@ class Updater:
             return {el[ltag]: el for el in array if ltag in el}
 
 
-def constitute_text(name, et, up):
+def constitute_text(name, et, id2brand):
     text = name
     bid = et.get('brandId')
     if bid:
-        bname = up.id2brand[bid]['name'].lower()
+        bname = id2brand[bid]['name'].lower()
         if bname not in text.lower():
             text += ' ' + bname
     return text
