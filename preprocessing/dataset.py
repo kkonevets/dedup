@@ -59,12 +59,10 @@ def input_data(cur_samples, fid2text, sid2text, qid2text):
 
 def sim_worker(extra, tup):
     q_terms, d_terms, info = tup
-    q = ' '.join(q_terms)
-    d = ' '.join(d_terms)
     if extra:
-        ftrs = textsim.get_extra_ftrs(q, d)
+        ftrs = textsim.get_extra_ftrs(q_terms, d_terms)
     else:
-        ftrs = textsim.get_sim_features(q, d)
+        ftrs = textsim.get_sim_features(q_terms, d_terms)
     values = list(info) + list(ftrs.values())
     columns = COLNAMES + list(ftrs.keys())
     return values, columns
@@ -80,7 +78,7 @@ def get_similarity_features(data, output_file, extra=False):
     wraper = partial(sim_worker, extra)
 
     vals = []
-    with mp.Pool(mp.cpu_count(), maxtasksperchild=5000) as p:
+    with mp.Pool(mp.cpu_count(), maxtasksperchild=100000) as p:
         with tqdm(total=len(data[0])) as pbar:
             for values, columns in tqdm(p.imap_unordered(wraper, feeder(data))):
                 vals.append(values)
@@ -378,7 +376,6 @@ def main():
     #     train_data, '../data/dedup/train_sim_ftrs_extra.npz', True)
 
     train_sim_ftrs, test_sim_ftrs = load_sim_ftrs(with_extra=False)
-
     save_letor_txt(train_sim_ftrs, test_sim_ftrs, vali=True)
 
     # to_letor_example(train_sim_ftrs, test_sim_ftrs)
