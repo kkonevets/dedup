@@ -5,10 +5,21 @@ from tqdm import tqdm
 
 import numpy as np
 from fuzzywuzzy import fuzz
-import jellyfish
 import py_stringmatching as sm
 from pprint import pprint
 import Levenshtein
+import textdistance as td
+from similarity.metric_lcs import MetricLCS
+from similarity.ngram import NGram
+from similarity.qgram import QGram
+
+
+metric_lcs = MetricLCS()
+lcsstr = td.LCSStr()
+
+qgram = QGram(2)
+twogram = NGram(2)
+threegram = NGram(3)
 
 
 def lvn_dst(q, d):
@@ -31,16 +42,44 @@ def matrix_ftrs(fn, q_split, d_split, tag):
 
 
 def get_sim_features(q_split, d_split):
+    q = ' '.join(q_split)
+    d = ' '.join(d_split)
+
     frac = len(q_split)/len(d_split) if len(d_split) else 0
-    ftrs = {'q_len': len(q_split), 'd_len': len(d_split), 'q/d': frac}
+    cfrac = len(q)/len(d) if len(d) else 0
+    ftrs = {'q_len': len(q_split), 'd_len': len(d_split), 'q/d': frac,
+            'q_clen': len(q), 'd_clen': len(d), 'c_q/d': cfrac}
 
     ftrs.update(matrix_ftrs(lvn_dst, q_split, d_split, 'lvn'))
     ftrs.update(matrix_ftrs(Levenshtein.jaro, q_split, d_split, 'jaro'))
     ftrs.update(matrix_ftrs(Levenshtein.jaro_winkler,
                             q_split, d_split, 'jaro_win'))
+    ftrs.update(matrix_ftrs(lambda x, y: 1-metric_lcs.distance(x, y),
+                            q_split, d_split, 'lcsseq'))
+    ftrs.update(matrix_ftrs(lambda x, y: 1-td.ratcliff_obershelp.normalized_distance(x, y),
+                            q_split, d_split, 'ratcliff'))
+    ftrs.update(matrix_ftrs(lambda x, y: 1-td.tversky.normalized_distance(x, y),
+                            q_split, d_split, 'tversky'))
 
     ftrs['seqratio'] = Levenshtein.seqratio(q_split, d_split)
     ftrs['setratio'] = Levenshtein.setratio(q_split, d_split)
+    ftrs['jaccard'] = td.jaccard.normalized_distance(q, d)
+    ftrs['lcsseq'] = 1-metric_lcs.distance(q, d)
+    ftrs['lcsstr'] = lcsstr.normalized_similarity(q, d)
+    ftrs['twogram'] = twogram.distance(q, d)
+    ftrs['threegram'] = threegram.distance(q, d)
+
+    ftrs['fuzz.ratio'] = fuzz.ratio(q, d)/100.
+    ftrs['fuzz.partial_ratio'] = fuzz.partial_ratio(q, d)/100.
+    ftrs['fuzz.token_sort_ratio'] = fuzz.token_sort_ratio(q, d)/100.
+    ftrs['fuzz.token_set_ratio'] = fuzz.token_set_ratio(q, d)/100.
+
+    ftrs['qgram'] = qgram.distance(q, d)
+    ftrs['tversky'] = td.tversky.normalized_distance(q_split, d_split)
+    ftrs['overlap'] = td.overlap.normalized_distance(q_split, d_split)
+
+    ftrs['prefix'] = td.prefix.normalized_distance(q, d)
+    ftrs['postfix'] = td.postfix.normalized_distance(q, d)
 
     return ftrs
 
@@ -96,6 +135,5 @@ def test():
     q = 'мнямс конс соб телятина ветчина 200.0 грамм мнямс'
     d = '200.0 грамм конс   тел ветчин мнямс мнямс'
     q_split, d_split = q.split(), d.split()
-    s = get_sim_features(q, d)
-    df = pd.DataFrame.from_dict(s, orient='index')
-    print(df)
+    s = get_sim_features(q_split, d_split)
+    pprint(s)
