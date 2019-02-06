@@ -151,13 +151,26 @@ def letor_producer(X, qst):
 
 
 def to_letor(X, qst, fname):
-    with open(fname, 'w') as f:
+    gfile = fname.rstrip('txt') + 'group'
+    with open(fname, 'w') as f, open(gfile, 'w') as g:
+        gcount = 0
+        prev_id = None
         for target, _id, row in letor_producer(X, qst):
             s = '%d qid:%d' % (target, _id)
             _sft = ' '.join(['%d:%f' % (i + 1, v)
                              for i, v in enumerate(row)])
             s = ' '.join([s, _sft, '\n'])
             f.write(s)
+
+            if prev_id is None:
+                prev_id = _id
+            else:
+                gcount += 1
+            if _id != prev_id:
+                g.write('%d\n' % gcount)
+                gcount = 0
+            prev_id = _id
+        g.write('%d\n' % (gcount + 1))
 
 
 def letor_prepare(train_sim_ftrs, test_sim_ftrs):
