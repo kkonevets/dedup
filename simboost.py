@@ -70,7 +70,7 @@ def do_rank():
     tools.pprint(predict(xgb_ranker, test_dmatrix, y_test, group_test))
     # print(xgb_ranker.eval(vali_dmatrix))
 
-    ranks = {'tarin': xgb_ranker.predict(train_dmatrix),
+    ranks = {'train': xgb_ranker.predict(train_dmatrix),
              'vali': xgb_ranker.predict(vali_dmatrix),
              'test': xgb_ranker.predict(test_dmatrix)}
     np.savez('../data/dedup/ranks.npz')
@@ -82,9 +82,9 @@ def do_classify():
     X_test, y_test = load_svmlight_file("../data/dedup/test_letor.txt")
 
     ranks = np.loadz('../data/dedup/ranks.npz')
-    X_train = np.hstack((X_train, tanks['train']))
-    X_vali = np.hstack((X_vali, tanks['vali']))
-    X_test = np.hstack((X_test, tanks['X_test']))
+    X_train = np.hstack((X_train, ranks['train']))
+    X_vali = np.hstack((X_vali, ranks['vali']))
+    X_test = np.hstack((X_test, ranks['X_test']))
 
     params = {'n_estimators': 1000, 'n_jobs': -1,  # 1000 best
               'max_depth': 10,  # 10 best
