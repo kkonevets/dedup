@@ -6,7 +6,7 @@ import re
 import multiprocessing as mp
 from pymongo import MongoClient
 
-client = MongoClient()
+client = MongoClient(tools.c_HOST)
 db = client['release']
 
 id2cat = {c['_id']: c for c in db.categories.find({}, projection=['name'])}

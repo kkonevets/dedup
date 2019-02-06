@@ -296,15 +296,15 @@ def load_sim_ftrs(with_extra=True):
     train_sim_ftrs = train_sim_ftrs.merge(
         train_tfidf_cos, on=['qid', 'synid', 'fid'])
 
-    test_ft_cos = dists_from_numpy(
-        '../data/dedup/test_fasttext_cosine.npz', 'ft')
-    train_ft_cos = dists_from_numpy(
-        '../data/dedup/train_fasttext_cosine.npz', 'ft')
+    # test_ft_cos = dists_from_numpy(
+    #     '../data/dedup/test_fasttext_cosine.npz', 'ft')
+    # train_ft_cos = dists_from_numpy(
+    #     '../data/dedup/train_fasttext_cosine.npz', 'ft')
 
-    test_sim_ftrs = test_sim_ftrs.merge(
-        test_ft_cos, on=['qid', 'synid', 'fid'])
-    train_sim_ftrs = train_sim_ftrs.merge(
-        train_ft_cos, on=['qid', 'synid', 'fid'])
+    # test_sim_ftrs = test_sim_ftrs.merge(
+    #     test_ft_cos, on=['qid', 'synid', 'fid'])
+    # train_sim_ftrs = train_sim_ftrs.merge(
+    #     train_ft_cos, on=['qid', 'synid', 'fid'])
 
     test_sim_ftrs.fillna(-1, inplace=True)
     train_sim_ftrs.fillna(-1, inplace=True)
@@ -343,7 +343,7 @@ def main():
     sids = samples[samples['synid'] != -1]['synid'].unique()
     fids = samples['fid'].unique()
 
-    raw = True
+    raw = False
     corpus = tools.load_samples(
         '../data/dedup/corpus%s.npz' % ('_raw' if raw else ''))
 
@@ -371,8 +371,7 @@ def main():
     train_data = tools.do_unpickle('../data/dedup/train_data.pkl')
     test_data = tools.do_unpickle('../data/dedup/test_data.pkl')
     compute_tfidf_dists(train_data, test_data)
-
-    compute_fasttext_dists()
+    # compute_fasttext_dists()
 
     # to_example(train_data, '../data/dedup/train.tfrecord')
     # to_example(test_data, '../data/dedup/test.tfrecord')

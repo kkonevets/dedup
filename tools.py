@@ -12,10 +12,14 @@ from nltk.stem.snowball import SnowballStemmer
 import cyrtranslit
 import paramiko
 import time
+from pprint import pprint
 from tqdm import tqdm
 from pymongo import MongoClient
 
 # from tokenizer import tokenize
+
+c_HOST = '10.70.6.154'
+ml_HOST = '10.72.100.255'
 
 chars = string.punctuation
 chars = chars.replace('%', '').replace('_', '').replace('@', '')

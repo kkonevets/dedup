@@ -20,10 +20,8 @@ matplotlib.use('agg')
 
 prog = re.compile("[\\W]", re.UNICODE)
 
-c_HOST = '10.70.6.154'
-ml_HOST = '10.72.100.255'
-MONGO_HOST = c_HOST
-SOLR_HOST = ml_HOST
+MONGO_HOST = tools.c_HOST
+SOLR_HOST = tools.ml_HOST
 
 
 def release_stat():
@@ -262,7 +260,7 @@ def solr_sample():
     nchoices = 5
     np.random.seed(0)
 
-    prior = get_prior(anew=False)
+    prior = get_prior(anew=True)
 
     wraper = partial(query_one, id2brand, nrows, nchoices, prior)
 

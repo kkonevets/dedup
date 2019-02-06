@@ -78,7 +78,7 @@ def ranking():
             ix_prev += gcount
 
         for k in list(scores.keys()):
-            scores['ndcg@%d' % k] = np.mean(scores.pop(k))
+            scores['ndcg@%d' % k] = np.round(np.mean(scores.pop(k)), 4)
 
         return scores
 
@@ -102,9 +102,12 @@ def ranking():
     valid_dmatrix.set_group(group_valid)
 
     params = {'objective': 'rank:ndcg', 'eta': 0.1, 'gamma': 1.0,
-              'min_child_weight': 0.1, 'max_depth': 10, 'eval_metric': ['ndcg@1', 'ndcg@2']}
+              'min_child_weight': 0.1, 'max_depth': 10,
+              'eval_metric': ['ndcg@%d' % i for i in range(1, 3)] +
+              ['map@%d' % i for i in range(2, 3)]}
     xgb_model = xgb.train(params, train_dmatrix,
                           num_boost_round=1000, early_stopping_rounds=20,
                           evals=[(valid_dmatrix, 'vali')])
 
-    predict(xgb_model, valid_dmatrix, y_valid, group_valid)
+    tools.pprint(predict(xgb_model, test_dmatrix, y_test, group_test))
+    # print(xgb_model.eval(valid_dmatrix))
