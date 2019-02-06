@@ -277,7 +277,7 @@ def dists_from_numpy(fname, tag):
     return df
 
 
-def load_sim_ftrs(with_extra=True):
+def load_sim_ftrs(with_extra=False):
     test_sim_ftrs = tools.load_samples(
         '../data/dedup/test_sim_ftrs.npz', key='vals')
     train_sim_ftrs = tools.load_samples(

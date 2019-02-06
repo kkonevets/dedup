@@ -4,23 +4,17 @@ import pandas as pd
 import shutil
 import os
 import tools
+from preprocessing import dataset
 from sklearn.preprocessing import StandardScaler
-
+from sklearn.datasets import load_svmlight_file
 
 #########################################################################
 
 batch_size = 128
 
-data_train = tools.load_samples('../data/dedup/train_sim_ftrs.npz', key='vals')
-data_test = tools.load_samples('../data/dedup/test_sim_ftrs.npz', key='vals')
-
-
-cols = [c for c in data_train.columns if c not in {
-    'qid', 'synid', 'fid', 'target'}]
-
-norm = StandardScaler()
-X_train = norm.fit_transform(data_train[cols])
-X_test = norm.transform(data_test[cols])
+X_train, y_train = load_svmlight_file("../data/dedup/train_letor.txt")
+X_vali, y_vali = load_svmlight_file("../data/dedup/vali_letor.txt")
+X_test, y_test = load_svmlight_file("../data/dedup/test_letor.txt")
 
 model_dir = "./model/simdnn"
 
@@ -30,10 +24,10 @@ model_dir = "./model/simdnn"
 def _input_fn(train=True, num_epochs=1, shuffle=False, seed=0):
     if train:
         ds = tf.data.Dataset.from_tensor_slices(
-            ({'x': X_train}, data_train['target']))
+            ({'x': X_train}, y_train))
     else:
         ds = tf.data.Dataset.from_tensor_slices(
-            ({'x': X_test}, data_test['target']))
+            ({'x': X_test}, y_test))
 
     if shuffle:
         ds = ds.shuffle(10000, seed=seed)
