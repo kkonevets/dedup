@@ -63,31 +63,28 @@ def do_rank():
     params = {'objective': 'rank:ndcg', 'eta': 0.1, 'gamma': 1.0,
               'min_child_weight': 0.1, 'max_depth': 10,
               'eval_metric': eval_metric}
-    xgb_model = xgb.train(params, train_dmatrix,
-                          num_boost_round=1000, early_stopping_rounds=20,
-                          evals=[(vali_dmatrix, 'vali')])
+    xgb_ranker = xgb.train(params, train_dmatrix,
+                           num_boost_round=1000, early_stopping_rounds=20,
+                           evals=[(vali_dmatrix, 'vali')])
 
-    tools.pprint(predict(xgb_model, test_dmatrix, y_test, group_test))
-    # print(xgb_model.eval(vali_dmatrix))
+    tools.pprint(predict(xgb_ranker, test_dmatrix, y_test, group_test))
+    # print(xgb_ranker.eval(vali_dmatrix))
 
-    ranks_train = xgb_model.predict(train_dmatrix)
-    ranks_vali = xgb_model.predict(vali_dmatrix)
-    ranks_test = xgb_model.predict(test_dmatrix)
+    ranks = {'tarin': xgb_ranker.predict(train_dmatrix),
+             'vali': xgb_ranker.predict(vali_dmatrix),
+             'test': xgb_ranker.predict(test_dmatrix)}
+    np.savez('../data/dedup/ranks.npz')
 
 
 def do_classify():
-    def predict(model, X, y, threshold=0.4):
-        c = Counter(y)
-        probs = model.predict_proba(X)
-        y_pred = (probs[:, 1] >= threshold).astype(int)
-        print(classification_report(y, y_pred, labels=[1]))
-        print('base accuracy %f' % (c[0]/sum(c.values())))
-        print('accuracy %f' % accuracy_score(y, y_pred))
-        return y_pred
-
     X_train, y_train = load_svmlight_file("../data/dedup/train_letor.txt")
     X_vali, y_vali = load_svmlight_file("../data/dedup/vali_letor.txt")
     X_test, y_test = load_svmlight_file("../data/dedup/test_letor.txt")
+
+    ranks = np.loadz('../data/dedup/ranks.npz')
+    X_train = np.hstack((X_train, tanks['train']))
+    X_vali = np.hstack((X_vali, tanks['vali']))
+    X_test = np.hstack((X_test, tanks['X_test']))
 
     params = {'n_estimators': 1000, 'n_jobs': -1,  # 1000 best
               'max_depth': 10,  # 10 best
@@ -99,11 +96,24 @@ def do_classify():
               #   'reg_alpha': 5
               }
 
-    model = xgb.XGBClassifier(**params)
-    model.fit(X_train, y_train, verbose=True, early_stopping_rounds=20,
-              eval_set=[(X_vali, y_vali)], eval_metric='logloss')
+    xgb_clr = xgb.XGBClassifier(**params)
+    xgb_clr.fit(X_train, y_train, verbose=True, early_stopping_rounds=20,
+                eval_set=[(X_vali, y_vali)], eval_metric='logloss')
 
-    _ = predict(model, X_train, y_train)
-    y_pred = predict(model, X_test, y_test)
+    def predict(model, X, y, threshold=0.4):
+        c = Counter(y)
+        probs = model.predict_proba(X)
+        y_pred = (probs[:, 1] >= threshold).astype(int)
+        rep = classification_report(y, y_pred, labels=[1], output_dict=True)
+        rep = rep['1']
+        rep['base_accuracy'] = c[0]/sum(c.values())
+        rep['accuracy'] = accuracy_score(y, y_pred)
+        rep = {k: round(v, 4) for k, v in rep.items()}
+        tools.pprint(rep)
+        print('\n')
+        return y_pred
+
+    _ = predict(xgb_clr, X_train, y_train)
+    y_pred = predict(xgb_clr, X_test, y_test)
     cm = confusion_matrix(y_test, y_pred)
     print(cm)
