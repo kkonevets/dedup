@@ -15,6 +15,7 @@ from sklearn.metrics.pairwise import paired_cosine_distances
 from sklearn.metrics.pairwise import pairwise_distances
 from scipy.spatial.distance import cosine
 from gensim.models import FastText
+import nltk
 
 
 INFO_COLUMNS = ['qid', 'synid', 'fid', 'target']
@@ -370,7 +371,7 @@ def main():
 
     train_data = tools.do_unpickle('../data/dedup/train_data.pkl')
     test_data = tools.do_unpickle('../data/dedup/test_data.pkl')
-    compute_tfidf_dists(train_data, test_data)
+    # compute_tfidf_dists(train_data, test_data)
     # compute_fasttext_dists()
 
     # to_example(train_data, '../data/dedup/train.tfrecord')

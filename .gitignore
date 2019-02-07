@@ -19,7 +19,7 @@ data
 model
 pkg
 bin
-preprocessing/lcs.cpp
+preprocessing/*.cpp
 
 cmake-build*
 .idea

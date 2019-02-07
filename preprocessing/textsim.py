@@ -15,9 +15,17 @@ from dedup import lcs
 
 lcsstr = td.LCSStr()
 
+ed = sm.Editex()
+oc = sm.OverlapCoefficient()
+tvi = sm.TverskyIndex()
+jac = sm.Jaccard()
 qgram = QGram(2)
-twogram = NGram(2)
-threegram = NGram(3)
+bd = sm.BagDistance()
+gj = sm.GeneralizedJaccard()
+gjw = sm.GeneralizedJaccard(
+    sim_func=sm.JaroWinkler().get_raw_score, threshold=0.8)
+me = sm.MongeElkan()
+menw = sm.MongeElkan(sim_func=sm.NeedlemanWunsch().get_raw_score)
 
 
 def lvn_dst(q, d):
@@ -28,8 +36,16 @@ def lvn_dst(q, d):
 
 
 def lcs_dst(q, d):
-    n = lcs.longest_common_subsequence(q, d)[-1, -1]
-    return n/max(len(q), len(d))
+    m = max(max(len(q), len(d)), 1)
+    return lcs.longest_common_subsequence(q, d)/m
+
+
+def ratcliff_dst(q, d):
+    return 1-td.ratcliff_obershelp.normalized_distance(q, d)
+
+
+def tversky_dst(q, d):
+    return 1-td.tversky.normalized_distance(q, d)
 
 
 def matrix_ftrs(fn, q_split, d_split, tag):
@@ -44,6 +60,35 @@ def matrix_ftrs(fn, q_split, d_split, tag):
     return ftrs
 
 
+func_map = {
+    'bag_mat': lambda x, y: matrix_ftrs(bd.get_sim_score, x, y, 'bag'),
+    'lvn_mat': lambda x, y: matrix_ftrs(lvn_dst, x, y, 'lvn'),
+    'jaro_mat': lambda x, y: matrix_ftrs(Levenshtein.jaro, x, y, 'jaro'),
+    'jaro_win_mat': lambda x, y: matrix_ftrs(Levenshtein.jaro_winkler, x, y, 'jaro_win'),
+    'lcsseq_mat': lambda x, y: matrix_ftrs(lcs_dst, x, y, 'lcsseq'),
+    # 'ratcliff_mat': lambda x, y: matrix_ftrs(ratcliff_dst, x, y, 'ratcliff'),
+    'genjack_tok': gj.get_sim_score,
+    'me_tok': me.get_raw_score,
+    'menw_tok': menw.get_raw_score,
+    'genjack_jw_tok': gjw.get_sim_score,
+    'seqratio_tok': Levenshtein.seqratio,
+    'setratio_tok': Levenshtein.setratio,
+    'jaccard_tok': jac.get_sim_score,
+    'lcsseq': lcs_dst,
+    'lcsstr': lcsstr.normalized_similarity,
+    'fuzz.ratio': fuzz.ratio,
+    'fuzz.partial_ratio': fuzz.partial_ratio,
+    'fuzz.token_sort_ratio': fuzz.token_sort_ratio,
+    'fuzz.token_set_ratio': fuzz.token_set_ratio,
+    'qgram': qgram.distance,
+    'tversky_tok': tvi.get_sim_score,
+    'overlap_tok': oc.get_sim_score,
+    # 'editex': ed.get_sim_score,
+    'prefix': td.prefix.normalized_distance,
+    'postfix': td.postfix.normalized_distance
+}
+
+
 def get_sim_features(q_split, d_split):
     q = ' '.join(q_split)
     d = ' '.join(d_split)
@@ -53,36 +98,13 @@ def get_sim_features(q_split, d_split):
     ftrs = {'q_len': len(q_split), 'd_len': len(d_split), 'q/d': frac,
             'q_clen': len(q), 'd_clen': len(d), 'c_q/d': cfrac}
 
-    ftrs.update(matrix_ftrs(lvn_dst, q_split, d_split, 'lvn'))
-    ftrs.update(matrix_ftrs(Levenshtein.jaro, q_split, d_split, 'jaro'))
-    ftrs.update(matrix_ftrs(Levenshtein.jaro_winkler,
-                            q_split, d_split, 'jaro_win'))
-    ftrs.update(matrix_ftrs(lambda x, y: lcs_dst(x, y),
-                            q_split, d_split, 'lcsseq'))
-    ftrs.update(matrix_ftrs(lambda x, y: 1-td.ratcliff_obershelp.normalized_distance(x, y),
-                            q_split, d_split, 'ratcliff'))
-    ftrs.update(matrix_ftrs(lambda x, y: 1-td.tversky.normalized_distance(x, y),
-                            q_split, d_split, 'tversky'))
-
-    ftrs['seqratio'] = Levenshtein.seqratio(q_split, d_split)
-    ftrs['setratio'] = Levenshtein.setratio(q_split, d_split)
-    ftrs['jaccard'] = td.jaccard.normalized_distance(q, d)
-    ftrs['lcsseq'] = lcs_dst(q, d)
-    ftrs['lcsstr'] = lcsstr.normalized_similarity(q, d)
-    ftrs['twogram'] = twogram.distance(q, d)
-    ftrs['threegram'] = threegram.distance(q, d)
-
-    ftrs['fuzz.ratio'] = fuzz.ratio(q, d)/100.
-    ftrs['fuzz.partial_ratio'] = fuzz.partial_ratio(q, d)/100.
-    ftrs['fuzz.token_sort_ratio'] = fuzz.token_sort_ratio(q, d)/100.
-    ftrs['fuzz.token_set_ratio'] = fuzz.token_set_ratio(q, d)/100.
-
-    ftrs['qgram'] = qgram.distance(q, d)
-    ftrs['tversky'] = td.tversky.normalized_distance(q_split, d_split)
-    ftrs['overlap'] = td.overlap.normalized_distance(q_split, d_split)
-
-    ftrs['prefix'] = td.prefix.normalized_distance(q, d)
-    ftrs['postfix'] = td.postfix.normalized_distance(q, d)
+    for k, func in func_map.items():
+        if '_mat' in k:
+            ftrs.update(func(q_split, d_split))
+        elif '_tok' in k:
+            ftrs[k] = func(q_split, d_split)
+        else:
+            ftrs[k] = func(q, d)
 
     return ftrs
 
@@ -114,15 +136,16 @@ def performance():
 
     corpus = tools.load_samples('../data/dedup/corpus.npz')
 
-    fmap = {'lvn': lvn_dst}
-
     times = {}
     d = 'test'
     for q in tqdm(corpus['text'].values[:1000]):
-        for k, fn in fmap.items():
-            d_split = d.split()
-
-            t = compute(fn, q, d)
+        q_split = q.split()
+        d_split = d.split()
+        for k, func in func_map.items():
+            if '_mat' in k or '_tok' in k:
+                t = compute(func, q_split, d_split)
+            else:
+                t = compute(func, q, d)
 
             t_prev = times.get(k, 0)
             times[k] = t_prev + t

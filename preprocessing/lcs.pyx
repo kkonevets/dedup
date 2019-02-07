@@ -35,7 +35,7 @@ def bytes_list_cast(list_, **kwargs):
 
 @cython.boundscheck(False)
 def longest_common_subsequence(X, Y):
-    """Compute and return the longest common subsequence matrix
+    """Compute and return the longest common subsequence length
     X, Y are list of strings"""
     cdef int m = len(X)
     cdef int n = len(Y)
@@ -58,4 +58,4 @@ def longest_common_subsequence(X, Y):
                 C[i, j] = C[i-1, j-1] + 1
             else:
                 C[i, j] = int_max(C[i, j-1], C[i-1, j])
-    return C
+    return C[-1, -1]
