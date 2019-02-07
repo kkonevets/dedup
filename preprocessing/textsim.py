@@ -15,6 +15,7 @@ from dedup import lcs
 
 lcsstr = td.LCSStr()
 
+aff = sm.Affine()
 ed = sm.Editex()
 oc = sm.OverlapCoefficient()
 tvi = sm.TverskyIndex()
@@ -61,7 +62,7 @@ def matrix_ftrs(fn, q_split, d_split, tag):
 
 
 func_map = {
-    'bag_mat': lambda x, y: matrix_ftrs(bd.get_sim_score, x, y, 'bag'),
+    # 'bag_mat': lambda x, y: matrix_ftrs(bd.get_sim_score, x, y, 'bag'),
     'lvn_mat': lambda x, y: matrix_ftrs(lvn_dst, x, y, 'lvn'),
     'jaro_mat': lambda x, y: matrix_ftrs(Levenshtein.jaro, x, y, 'jaro'),
     'jaro_win_mat': lambda x, y: matrix_ftrs(Levenshtein.jaro_winkler, x, y, 'jaro_win'),
@@ -85,7 +86,8 @@ func_map = {
     'overlap_tok': oc.get_sim_score,
     # 'editex': ed.get_sim_score,
     'prefix': td.prefix.normalized_distance,
-    'postfix': td.postfix.normalized_distance
+    'postfix': td.postfix.normalized_distance,
+    # 'affine': aff.get_raw_score
 }
 
 
