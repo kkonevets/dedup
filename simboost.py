@@ -3,6 +3,7 @@ from xgboost import DMatrix
 from sklearn.datasets import load_svmlight_file
 import numpy as np
 import pandas as pd
+from scipy import sparse
 import shutil
 import os
 import tools
@@ -13,6 +14,7 @@ from sklearn.metrics import classification_report
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.model_selection import GridSearchCV
 from sklearn.preprocessing import StandardScaler
+from sklearn.externals import joblib
 
 
 def do_rank():
@@ -57,12 +59,14 @@ def do_rank():
     train_dmatrix.set_group(group_train)
     vali_dmatrix.set_group(group_vali)
 
-    eval_metric = ['ndcg@%d' % i for i in range(1, 3)] +\
-        ['map@%d' % i for i in range(2, 3)]
-
-    params = {'objective': 'rank:ndcg', 'eta': 0.1, 'gamma': 1.0,
-              'min_child_weight': 0.1, 'max_depth': 10,
-              'eval_metric': eval_metric}
+    params = {
+        'objective': 'rank:ndcg',
+        'eta': 0.1,
+        'max_depth': 10,
+        'gamma': 1.0,
+        'min_child_weight': 0.1,
+        'eval_metric': ['ndcg@1', 'ndcg@2', 'map@2']
+    }
     xgb_ranker = xgb.train(params, train_dmatrix,
                            num_boost_round=1000, early_stopping_rounds=20,
                            evals=[(vali_dmatrix, 'vali')])
@@ -70,10 +74,12 @@ def do_rank():
     tools.pprint(predict(xgb_ranker, test_dmatrix, y_test, group_test))
     # print(xgb_ranker.eval(vali_dmatrix))
 
-    ranks = {'train': xgb_ranker.predict(train_dmatrix),
-             'vali': xgb_ranker.predict(vali_dmatrix),
-             'test': xgb_ranker.predict(test_dmatrix)}
-    np.savez('../data/dedup/ranks.npz')
+    joblib.dump(xgb_ranker, '../data/dedup/xgb_ranker.model')
+
+    # np.savez('../data/dedup/ranks.npz',
+    #          train=xgb_ranker.predict(train_dmatrix),
+    #          vali=xgb_ranker.predict(vali_dmatrix),
+    #          test=xgb_ranker.predict(test_dmatrix))
 
 
 def do_classify():
@@ -81,20 +87,25 @@ def do_classify():
     X_vali, y_vali = load_svmlight_file("../data/dedup/vali_letor.txt")
     X_test, y_test = load_svmlight_file("../data/dedup/test_letor.txt")
 
-    ranks = np.loadz('../data/dedup/ranks.npz')
-    X_train = np.hstack((X_train, ranks['train']))
-    X_vali = np.hstack((X_vali, ranks['vali']))
-    X_test = np.hstack((X_test, ranks['X_test']))
+    # ranks = np.load('../data/dedup/ranks.npz')
+    # rank_train = np.reshape(ranks['train'], (-1, 1))
+    # rank_vali = np.reshape(ranks['vali'], (-1, 1))
+    # rank_test = np.reshape(ranks['test'], (-1, 1))
 
-    params = {'n_estimators': 1000, 'n_jobs': -1,  # 1000 best
-              'max_depth': 10,  # 10 best
-              'learning_rate': 0.1,  # !!!!!!!!!!!!!!!
-              #   'min_child_weight': 1,
-              #   'gamma': 3,
-              #   'subsample': 0.8,
-              #   'colsample_bytree': 0.8,
-              #   'reg_alpha': 5
-              }
+    # X_train = sparse.hstack([X_train, rank_train])
+    # X_vali = sparse.hstack([X_vali, rank_vali])
+    # X_test = sparse.hstack([X_test, rank_test])
+
+    params = {
+        'n_estimators': 1000, 'n_jobs': -1,  # 1000 best
+        'max_depth': 10,  # 10 best
+        'learning_rate': 0.1,  # !!!!!!!!!!!!!!!
+        #   'min_child_weight': 1,
+        #   'gamma': 3,
+        #   'subsample': 0.8,
+        #   'colsample_bytree': 0.8,
+        #   'reg_alpha': 5
+    }
 
     xgb_clr = xgb.XGBClassifier(**params)
     xgb_clr.fit(X_train, y_train, verbose=True, early_stopping_rounds=20,
@@ -117,3 +128,5 @@ def do_classify():
     y_pred = predict(xgb_clr, X_test, y_test)
     cm = confusion_matrix(y_test, y_pred)
     print(cm)
+
+    joblib.dump(xgb_clr, '../data/dedup/xgb_clr.model')
