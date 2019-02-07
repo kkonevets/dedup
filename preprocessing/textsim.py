@@ -9,12 +9,10 @@ import py_stringmatching as sm
 from pprint import pprint
 import Levenshtein
 import textdistance as td
-from similarity.metric_lcs import MetricLCS
 from similarity.ngram import NGram
 from similarity.qgram import QGram
+from dedup import lcs
 
-
-metric_lcs = MetricLCS()
 lcsstr = td.LCSStr()
 
 qgram = QGram(2)
@@ -27,6 +25,11 @@ def lvn_dst(q, d):
     if l == 0:
         return 0
     return 1 - Levenshtein.distance(q, d)/l
+
+
+def lcs_dst(q, d):
+    n = lcs.longest_common_subsequence(q, d)[-1, -1]
+    return n/max(len(q), len(d))
 
 
 def matrix_ftrs(fn, q_split, d_split, tag):
@@ -54,7 +57,7 @@ def get_sim_features(q_split, d_split):
     ftrs.update(matrix_ftrs(Levenshtein.jaro, q_split, d_split, 'jaro'))
     ftrs.update(matrix_ftrs(Levenshtein.jaro_winkler,
                             q_split, d_split, 'jaro_win'))
-    ftrs.update(matrix_ftrs(lambda x, y: 1-metric_lcs.distance(x, y),
+    ftrs.update(matrix_ftrs(lambda x, y: lcs_dst(x, y),
                             q_split, d_split, 'lcsseq'))
     ftrs.update(matrix_ftrs(lambda x, y: 1-td.ratcliff_obershelp.normalized_distance(x, y),
                             q_split, d_split, 'ratcliff'))
@@ -64,7 +67,7 @@ def get_sim_features(q_split, d_split):
     ftrs['seqratio'] = Levenshtein.seqratio(q_split, d_split)
     ftrs['setratio'] = Levenshtein.setratio(q_split, d_split)
     ftrs['jaccard'] = td.jaccard.normalized_distance(q, d)
-    ftrs['lcsseq'] = 1-metric_lcs.distance(q, d)
+    ftrs['lcsseq'] = lcs_dst(q, d)
     ftrs['lcsstr'] = lcsstr.normalized_similarity(q, d)
     ftrs['twogram'] = twogram.distance(q, d)
     ftrs['threegram'] = threegram.distance(q, d)

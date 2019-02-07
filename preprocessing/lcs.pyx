@@ -11,9 +11,26 @@ cimport numpy as np
 from libcpp.string cimport string
 from libcpp.vector cimport vector
 from libcpp cimport bool
-from compat import bytes_list_cast
 
 cdef inline int int_max(int a, int b): return a if a >= b else b
+
+def bytes_list_cast(list_, **kwargs):
+    """
+    Converts any string-like items in input list to bytes-like values, with
+    respect to python version
+
+    Parameters
+    ----------
+    list_ : list
+        any string-like objects contained in the list will be converted to bytes
+    kwargs:
+        encoding: str, default: 'utf-8'
+            encoding to be used when encoding string
+    """
+    def bytes_cast(maybe_str, encoding='utf-8'):
+      return maybe_str.encode(encoding)
+
+    return [bytes_cast(elem, **kwargs) for elem in list_]
 
 
 @cython.boundscheck(False)

@@ -12,11 +12,6 @@ ext_modules = [
 ]
 
 setup(
-    name='dedup_prepro',
-    ext_modules=cythonize(ext_modules),
-    install_requires=[
-        'Cython>=0.21.1',
-        'numpy',
-        'scipy'
-    ]
+    name='prepro',
+    ext_modules=cythonize(ext_modules)
 )
