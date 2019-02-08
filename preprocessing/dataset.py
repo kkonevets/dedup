@@ -29,7 +29,10 @@ import nltk
 import tensorflow as tf
 from preprocessing.producing import Producer
 from preprocessing.letor import save_letor_txt
+from preprocessing.letor import INFO_COLUMNS
 from preprocessing.letor import to_letor_example
+import preprocessing.tfrecord as tfrec
+
 
 flags.DEFINE_string("data_dir", None, "path to data directory")
 flags.DEFINE_bool("build_features", False, "build column features")
@@ -40,9 +43,7 @@ flags.DEFINE_bool("fasttext", False, "use fasttext features")
 flags.DEFINE_bool("build_tfrecord", False,
                   "build tensorflow record input files")
 
-
 FLAGS = flags.FLAGS
-INFO_COLUMNS = ['qid', 'synid', 'fid', 'target']
 COLNAMES = INFO_COLUMNS + ['score', 'ix']
 
 
@@ -53,9 +54,9 @@ def to_example(data, filename):
     for q, d, l in zip(q_terms, d_terms, labels):
             # Create a feature
         feature = {
-            'q_terms': _bytes_feature([tf.compat.as_bytes(qi) for qi in q]),
-            'd_terms': _bytes_feature([tf.compat.as_bytes(di) for di in d]),
-            'labels': _int32_feature(int(l)),
+            'q_terms': tfrec._bytes_feature([tf.compat.as_bytes(qi) for qi in q]),
+            'd_terms': tfrec._bytes_feature([tf.compat.as_bytes(di) for di in d]),
+            'labels': tfrec._int32_feature(int(l)),
         }
         # Create an example protocol buffer
         example = tf.train.Example(features=tf.train.Features(feature=feature))
@@ -111,10 +112,7 @@ def compute_fasttext_dists(train_gen_raw, test_gen_raw):
     get_dists(test_gen_raw, FLAGS.data_dir + '/test_fasttext_cosine.npz')
 
 
-#########################################################################
-
-
-def load_sim_ftrs(with_extra=False):
+def load_sim_ftrs():
     def dists_from_numpy(fname, tag):
         df = np.load(fname)['dists']
         df = pd.DataFrame(df)
@@ -132,45 +130,30 @@ def load_sim_ftrs(with_extra=False):
     test_sim_ftrs.drop_duplicates(['qid', 'synid', 'fid'], inplace=True)
     train_sim_ftrs.drop_duplicates(['qid', 'synid', 'fid'], inplace=True)
 
-    test_tfidf_cos = dists_from_numpy(
-        FLAGS.data_dir + '/test_tfidf_cosine.npz', 'tfidf')
-    train_tfidf_cos = dists_from_numpy(
-        FLAGS.data_dir + '/train_tfidf_cosine.npz', 'tfidf')
+    if FLAGS.tfidf:
+        test_tfidf_cos = dists_from_numpy(
+            FLAGS.data_dir + '/test_tfidf_cosine.npz', 'tfidf')
+        train_tfidf_cos = dists_from_numpy(
+            FLAGS.data_dir + '/train_tfidf_cosine.npz', 'tfidf')
 
-    test_sim_ftrs = test_sim_ftrs.merge(
-        test_tfidf_cos, on=['qid', 'synid', 'fid'])
-    train_sim_ftrs = train_sim_ftrs.merge(
-        train_tfidf_cos, on=['qid', 'synid', 'fid'])
+        test_sim_ftrs = test_sim_ftrs.merge(
+            test_tfidf_cos, on=['qid', 'synid', 'fid'])
+        train_sim_ftrs = train_sim_ftrs.merge(
+            train_tfidf_cos, on=['qid', 'synid', 'fid'])
 
-    # test_ft_cos = dists_from_numpy(
-    #     FLAGS.data_dir + '/test_fasttext_cosine.npz', 'ft')
-    # train_ft_cos = dists_from_numpy(
-    #     FLAGS.data_dir + '/train_fasttext_cosine.npz', 'ft')
+    if FLAGS.fasttext:
+        test_ft_cos = dists_from_numpy(
+            FLAGS.data_dir + '/test_fasttext_cosine.npz', 'ft')
+        train_ft_cos = dists_from_numpy(
+            FLAGS.data_dir + '/train_fasttext_cosine.npz', 'ft')
 
-    # test_sim_ftrs = test_sim_ftrs.merge(
-    #     test_ft_cos, on=['qid', 'synid', 'fid'])
-    # train_sim_ftrs = train_sim_ftrs.merge(
-    #     train_ft_cos, on=['qid', 'synid', 'fid'])
+        test_sim_ftrs = test_sim_ftrs.merge(
+            test_ft_cos, on=['qid', 'synid', 'fid'])
+        train_sim_ftrs = train_sim_ftrs.merge(
+            train_ft_cos, on=['qid', 'synid', 'fid'])
 
     test_sim_ftrs.fillna(-1, inplace=True)
     train_sim_ftrs.fillna(-1, inplace=True)
-
-    if with_extra:
-        print("WARNING: Loading extra features!")
-        test_extra = tools.load_samples(
-            FLAGS.data_dir + '/test_sim_ftrs_extra.npz', key='vals')
-        usecols = ['qid', 'synid', 'fid'] + \
-            list(set(test_extra.columns).difference(COLNAMES))
-        test_extra = test_extra[usecols]
-        train_extra = tools.load_samples(
-            FLAGS.data_dir + '/train_sim_ftrs_extra.npz', key='vals')
-        train_extra = train_extra[usecols]
-
-        # unite with extra
-        test_sim_ftrs = test_sim_ftrs.merge(
-            test_extra, on=['qid', 'synid', 'fid'])
-        train_sim_ftrs = train_sim_ftrs.merge(
-            train_extra, on=['qid', 'synid', 'fid'])
 
     return train_sim_ftrs, test_sim_ftrs
 
@@ -199,7 +182,7 @@ def main(argv):
         train_sim_ftrs = textsim.get_similarity_features(
             train_gen, COLNAMES, FLAGS.data_dir + '/train_sim_ftrs.npz')
 
-    train_sim_ftrs, test_sim_ftrs = load_sim_ftrs(with_extra=False)
+    train_sim_ftrs, test_sim_ftrs = load_sim_ftrs()
     save_letor_txt(train_sim_ftrs, test_sim_ftrs, FLAGS.data_dir, vali=True)
 
     # to_letor_example(train_sim_ftrs, test_sim_ftrs, FLAGS.data_dir)

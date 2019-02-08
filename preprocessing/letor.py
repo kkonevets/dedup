@@ -2,6 +2,9 @@ import tools
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
+import numpy as np
+import pandas as pd
+import preprocessing.tfrecord as tfrec
 
 INFO_COLUMNS = ['qid', 'synid', 'fid', 'target']
 
@@ -75,14 +78,6 @@ def save_letor_txt(train_sim_ftrs, test_sim_ftrs, data_dir, vali=False):
         to_letor(X_train, qst_train, data_dir + '/train_letor.txt')
 
 
-def _int32_feature(value):
-    return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
-
-
-def _bytes_feature(values):
-    return tf.train.Feature(bytes_list=tf.train.BytesList(value=values))
-
-
 def to_letor_example(train_sim_ftrs, test_sim_ftrs, data_dir):
     X_train, qst_train, X_test, qst_test = letor_prepare(
         train_sim_ftrs, test_sim_ftrs)
@@ -96,9 +91,9 @@ def to_letor_example(train_sim_ftrs, test_sim_ftrs, data_dir):
         for target, _id, row in letor_producer(X, qst):
             # Create a feature
             feature = {
-                'qid': _int32_feature(int(_id)),
+                'qid': tfrec._int32_feature(int(_id)),
                 'x': tf.train.Feature(float_list=tf.train.FloatList(value=row)),
-                'labels': _int32_feature(int(target)),
+                'labels': tfrec._int32_feature(int(target)),
             }
             # Create an example protocol buffer
             example = tf.train.Example(
