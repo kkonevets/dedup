@@ -45,52 +45,20 @@ INFO_COLUMNS = ['qid', 'synid', 'fid', 'target']
 COLNAMES = INFO_COLUMNS + ['score', 'ix']
 
 
-def get_id2text(corpus, tag, ids):
-    id2text = {}
-    for _id, text in corpus[corpus[tag].isin(ids)][[tag, 'text']].values:
-        id2text[_id] = text
-    return id2text
-
-
-def gen_data(cur_samples, fid2text, sid2text, qid2text):
-    q_terms, d_terms = [], []
-    rows = []
-    for row in tqdm(cur_samples.itertuples(), total=len(cur_samples)):
-        d_splited = fid2text[row.fid].split()
-        if row.synid != -1:
-            qtext = sid2text[row.synid]
-        else:
-            qtext = qid2text[row.qid]
-
-        q_splited = qtext.split()
-        if row.target == 0 and ' '.join(d_splited) == ' '.join(q_splited):
-            continue
-
-        if len(q_splited) * len(d_splited) == 0:
-            continue
-
-        # TODO: add DNN features: brands ...
-        yield q_splited, d_splited, [getattr(row, c) for c in COLNAMES]
-
-
-def sim_worker(extra, tup):
+def sim_worker(tup):
     q_terms, d_terms, info = tup
-    if extra:
-        ftrs = textsim.get_extra_ftrs(q_terms, d_terms)
-    else:
-        ftrs = textsim.get_sim_features(q_terms, d_terms)
+    ftrs = textsim.get_sim_features(q_terms, d_terms)
     values = list(info) + list(ftrs.values())
     columns = COLNAMES + list(ftrs.keys())
     return values, columns
 
 
-def get_similarity_features(data_gen, output_file, extra=False):
+def get_similarity_features(data_gen, output_file):
     columns = None
-    wraper = partial(sim_worker, extra)
 
     vals = []
     with mp.Pool(mp.cpu_count(), maxtasksperchild=100000) as p:
-        for values, columns in p.imap_unordered(wraper, data_gen):
+        for values, columns in p.imap_unordered(sim_worker, data_gen):
             vals.append(values)
 
     # for values, columns in map(wraper, data_gen):
@@ -276,17 +244,16 @@ def to_letor_example(train_sim_ftrs, test_sim_ftrs):
     save_one(X_test, qst_test, FLAGS.data_dir + '/test_letor.tfrecord')
 
 
-def dists_from_numpy(fname, tag):
-    df = np.load(fname)['dists']
-    df = pd.DataFrame(df)
-    columns = ['qid', 'synid', 'fid']
-    columns += ['%s%d' % (tag, i) for i in range(df.shape[1]-3)]
-    df.columns = columns
-    df.drop_duplicates(['qid', 'synid', 'fid'], inplace=True)
-    return df
-
-
 def load_sim_ftrs(with_extra=False):
+    def dists_from_numpy(fname, tag):
+        df = np.load(fname)['dists']
+        df = pd.DataFrame(df)
+        columns = ['qid', 'synid', 'fid']
+        columns += ['%s%d' % (tag, i) for i in range(df.shape[1]-3)]
+        df.columns = columns
+        df.drop_duplicates(['qid', 'synid', 'fid'], inplace=True)
+        return df
+
     test_sim_ftrs = tools.load_samples(
         FLAGS.data_dir + '/test_sim_ftrs.npz', key='vals')
     train_sim_ftrs = tools.load_samples(
@@ -338,60 +305,99 @@ def load_sim_ftrs(with_extra=False):
     return train_sim_ftrs, test_sim_ftrs
 
 
-def main(argv):
-    if not os.path.exists(FLAGS.data_dir):
-        os.makedirs(FLAGS.data_dir)
+class Producer:
+    def __init__(self):
+        self.load_data()
 
-    samples = tools.load_samples(FLAGS.data_dir + '/samples.npz')
-
-    # exclude samples not found in TOP
-    synids_exclude = set(samples[samples['ix'] == -1]['synid'].unique())
-    synids_exclude.discard(-1)
-    samples = samples[~samples['synid'].isin(synids_exclude)]
-    qids_exclude = samples[samples['ix'] == -1]['qid'].unique()
-    samples = samples[~samples['qid'].isin(qids_exclude)]
-
-    qids = samples[samples['synid'] == -1]['qid'].unique()
-    sids = samples[samples['synid'] != -1]['synid'].unique()
-    fids = samples['fid'].unique()
-
-    corpus = tools.load_samples(FLAGS.data_dir + '/corpus.npz')
-
-    qid2text = get_id2text(corpus, 'qid', qids)
-    sid2text = get_id2text(corpus, 'synid', sids)
-    fid2text = get_id2text(corpus, 'fid', fids)
-
-    # vals = corpus[corpus['train'] != 0]['text'].values
-    # informative_terms = set([w for s in vals for w in s.split()])
-    # with io.open(FLAGS.data_dir + '/vocab.txt', 'w', encoding='utf8') as f:
-    #     for term in informative_terms:
-    #         f.write(term + '\n')
-
-    def gen_pairs():
+    def gen_pairs(self):
+        samples, qid2text, sid2text, fid2text = \
+            self.samples, self.qid2text, self.sid2text, self.fid2text
         if 'train' in samples.columns:
-            train_gen = gen_data(
-                samples[samples['train'] == 1], fid2text, sid2text, qid2text)
+            train_gen = self.gen_data(
+                samples[samples['train'] == 1])
             test_samples = samples[samples['train'] == 0]
         else:
             train_gen = iter(())
             test_samples = samples
 
-        test_gen = gen_data(test_samples, fid2text, sid2text, qid2text)
+        test_gen = self.gen_data(test_samples)
         return train_gen, test_gen
+
+    @staticmethod
+    def get_id2text(corpus, tag, ids):
+        id2text = {}
+        for _id, text in corpus[corpus[tag].isin(ids)][[tag, 'text']].values:
+            id2text[_id] = text
+        return id2text
+
+    def gen_data(self, cur_samples):
+        fid2text, sid2text, qid2text = self.fid2text, self.sid2text, self.qid2text
+        for row in tqdm(cur_samples.itertuples(), total=len(cur_samples)):
+            d_splited = fid2text[row.fid].split()
+            if row.synid != -1:
+                qtext = sid2text[row.synid]
+            else:
+                qtext = qid2text[row.qid]
+
+            q_splited = qtext.split()
+            if row.target == 0 and ' '.join(d_splited) == ' '.join(q_splited):
+                continue
+
+            if len(q_splited) * len(d_splited) == 0:
+                continue
+
+            # TODO: add DNN features: brands ...
+            yield q_splited, d_splited, [getattr(row, c) for c in COLNAMES]
+
+    def load_data(self):
+        samples = tools.load_samples(FLAGS.data_dir + '/samples.npz')
+
+        # exclude samples not found in TOP
+        synids_exclude = set(samples[samples['ix'] == -1]['synid'].unique())
+        synids_exclude.discard(-1)
+        samples = samples[~samples['synid'].isin(synids_exclude)]
+        qids_exclude = samples[samples['ix'] == -1]['qid'].unique()
+        samples = samples[~samples['qid'].isin(qids_exclude)]
+
+        qids = samples[samples['synid'] == -1]['qid'].unique()
+        sids = samples[samples['synid'] != -1]['synid'].unique()
+        fids = samples['fid'].unique()
+
+        corpus = tools.load_samples(FLAGS.data_dir + '/corpus.npz')
+
+        qid2text = self.get_id2text(corpus, 'qid', qids)
+        sid2text = self.get_id2text(corpus, 'synid', sids)
+        fid2text = self.get_id2text(corpus, 'fid', fids)
+
+        # vals = corpus[corpus['train'] != 0]['text'].values
+        # informative_terms = set([w for s in vals for w in s.split()])
+        # with io.open(FLAGS.data_dir + '/vocab.txt', 'w', encoding='utf8') as f:
+        #     for term in informative_terms:
+        #         f.write(term + '\n')
+
+        self.samples, self.qid2text, self.sid2text, self.fid2text = \
+            samples, qid2text, sid2text, fid2text
+
+
+def main(argv):
+    if not os.path.exists(FLAGS.data_dir):
+        os.makedirs(FLAGS.data_dir)
+
+    prod = Producer()
 
     if FLAGS.build_features:
         if FLAGS.build_tfidf:
-            compute_tfidf_dists(*gen_pairs())
+            compute_tfidf_dists(*prod.gen_pairs())
         if FLAGS.build_fasttext:
             # do not pass traslited words
-            compute_fasttext_dists(*gen_pairs())
+            compute_fasttext_dists(*prod.gen_pairs())
         if FLAGS.build_tfrecord:
-            train_gen, test_gen = gen_pairs()
+            train_gen, test_gen = prod.gen_pairs()
             to_example(train_gen, FLAGS.data_dir + '/train.tfrecord')
             to_example(test_gen, FLAGS.data_dir + '/test.tfrecord')
 
-        train_gen, test_gen = gen_pairs()
-        # data_gen, output_file, extra = test_gen, FLAGS.data_dir + '/test_sim_ftrs.npz', False
+        train_gen, test_gen = prod.gen_pairs()
+        # data_gen, output_file = test_gen, FLAGS.data_dir + '/test_sim_ftrs.npz'
         test_sim_ftrs = get_similarity_features(
             test_gen, FLAGS.data_dir + '/test_sim_ftrs.npz')
         train_sim_ftrs = get_similarity_features(
