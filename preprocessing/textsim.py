@@ -12,6 +12,8 @@ import textdistance as td
 from similarity.ngram import NGram
 from similarity.qgram import QGram
 from dedup import lcs
+import multiprocessing as mp
+
 
 lcsstr = td.LCSStr()
 
@@ -165,3 +167,28 @@ def test():
     q_split, d_split = q.split(), d.split()
     s = get_sim_features(q_split, d_split)
     pprint(s)
+
+
+def sim_worker(tup):
+    q_terms, d_terms, info = tup
+    ftrs = get_sim_features(q_terms, d_terms)
+    values = list(info) + list(ftrs.values())
+    columns = list(ftrs.keys())
+    return values, columns
+
+
+def get_similarity_features(data_gen, colnames, output_file):
+    columns = []
+    vals = []
+    with mp.Pool(mp.cpu_count(), maxtasksperchild=100000) as p:
+        for values, columns in p.imap_unordered(sim_worker, data_gen):
+            vals.append(values)
+
+    # for values, columns in map(wraper, data_gen):
+    #     vals.append(values)
+
+    columns = colnames + columns
+
+    vals = np.array(vals, dtype=np.float32)
+    np.savez(output_file, vals=vals, columns=columns)
+    return vals, columns
