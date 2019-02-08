@@ -1,20 +1,28 @@
-import tools
-import json
-import urllib
-from tqdm import tqdm
-import multiprocessing as mp
-from urllib.parse import quote
-import pickle
-import matplotlib
-import numpy as np
-import pandas as pd
-import re
-from functools import partial
-from collections import Counter
-from pymongo import MongoClient
-import pymongo
-import string
+from absl import flags
+from absl import app
 from sklearn.model_selection import train_test_split
+import string
+import pymongo
+from pymongo import MongoClient
+from collections import Counter
+from functools import partial
+import re
+import pandas as pd
+import numpy as np
+import matplotlib
+import pickle
+from urllib.parse import quote
+import multiprocessing as mp
+from tqdm import tqdm
+import urllib
+import json
+import tools
+import sys
+
+
+flags.DEFINE_integer("train_batch_size", 32, "The batch size for training.")
+
+FLAGS = flags.FLAGS
 
 matplotlib.use('agg')
 
@@ -299,6 +307,10 @@ def solr_sample():
     save_positions(positions, nrows)
 
 
-if __name__ == "__main__":
-    pass
-    # solr_sample()
+def main(argv):
+    del argv  # Unused.
+    solr_sample()
+
+
+if __name__ == '__main__':
+    app.run(main)
