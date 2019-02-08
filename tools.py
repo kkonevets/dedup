@@ -12,6 +12,7 @@ from nltk.stem.snowball import SnowballStemmer
 import cyrtranslit
 import paramiko
 import time
+from sklearn.externals import joblib
 from pprint import pprint
 from tqdm import tqdm
 from pymongo import MongoClient
@@ -159,12 +160,12 @@ def load_master():
 
 def do_pickle(data, fname):
     with open(fname, 'wb') as f:
-        pickle.dump(data, f)
+        joblib.dump(data, f)
 
 
 def do_unpickle(fname):
     with open(fname, 'rb') as f:
-        data = pickle.load(f)
+        data = joblib.load(f)
     return data
 
 

@@ -1,9 +1,22 @@
+r"""
+Sample command lines:
+
+python3 preprocessing/dataset.py \
+--data_dir=../data/dedup/phase2/ \
+--build_features \
+--ftidf
+
+"""
+
+from absl import flags
+from absl import app
 import tools
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 import os
 import io
+import sys
 from sklearn.model_selection import train_test_split
 from preprocessing import textsim
 from tqdm import tqdm
@@ -17,7 +30,17 @@ from scipy.spatial.distance import cosine
 from gensim.models import FastText
 import nltk
 
+flags.DEFINE_string("data_dir", None, "path to data directory")
+flags.DEFINE_bool("build_features", False, "build column features")
+flags.DEFINE_bool("build_tfidf", False, "build tfidf features")
+flags.DEFINE_bool("build_fasttext", False, "build fasttext features")
+flags.DEFINE_bool("tfidf", False, "use tfidf features")
+flags.DEFINE_bool("fasttext", False, "use fasttext features")
+flags.DEFINE_bool("build_tfrecord", False,
+                  "build tensorflow record input files")
 
+
+FLAGS = flags.FLAGS
 INFO_COLUMNS = ['qid', 'synid', 'fid', 'target']
 COLNAMES = INFO_COLUMNS + ['score', 'ix']
 
@@ -29,33 +52,25 @@ def get_id2text(corpus, tag, ids):
     return id2text
 
 
-def input_data(cur_samples, fid2text, sid2text, qid2text):
+def gen_data(cur_samples, fid2text, sid2text, qid2text):
     q_terms, d_terms = [], []
     rows = []
-    for row in cur_samples.itertuples():
-        f_splited = fid2text[row.fid].split()
+    for row in tqdm(cur_samples.itertuples(), total=len(cur_samples)):
+        d_splited = fid2text[row.fid].split()
         if row.synid != -1:
             qtext = sid2text[row.synid]
         else:
             qtext = qid2text[row.qid]
 
         q_splited = qtext.split()
-        if row.target == 0 and ' '.join(f_splited) == ' '.join(q_splited):
+        if row.target == 0 and ' '.join(d_splited) == ' '.join(q_splited):
             continue
 
-        if len(q_splited) * len(f_splited) == 0:
+        if len(q_splited) * len(d_splited) == 0:
             continue
 
-        rows.append(row.Index)
-        d_terms.append(f_splited)
-        q_terms.append(q_splited)
-
-    # TODO: add DNN features: brands ...
-
-    cur_samples = cur_samples.loc[rows]
-    values = cur_samples[COLNAMES]
-    assert len(values) == len(q_terms)
-    return q_terms,  d_terms, values.values
+        # TODO: add DNN features: brands ...
+        yield q_splited, d_splited, [getattr(row, c) for c in COLNAMES]
 
 
 def sim_worker(extra, tup):
@@ -69,29 +84,25 @@ def sim_worker(extra, tup):
     return values, columns
 
 
-def get_similarity_features(data, output_file, extra=False):
+def get_similarity_features(data_gen, output_file, extra=False):
     columns = None
-
-    def feeder(data):
-        for tup in zip(*data):
-            yield tup
-
     wraper = partial(sim_worker, extra)
 
     vals = []
     with mp.Pool(mp.cpu_count(), maxtasksperchild=100000) as p:
-        with tqdm(total=len(data[0])) as pbar:
-            for values, columns in tqdm(p.imap_unordered(wraper, feeder(data))):
-                vals.append(values)
-                pbar.update()
+        for values, columns in p.imap_unordered(wraper, data_gen):
+            vals.append(values)
+
+    # for values, columns in map(wraper, data_gen):
+    #     vals.append(values)
 
     vals = np.array(vals, dtype=np.float32)
     np.savez(output_file, vals=vals, columns=columns)
     return vals, columns
 
 
-def compute_tfidf_dists(train_data, test_data):
-    tfidf_model = tools.do_unpickle('../data/dedup/tfidf_model.pkl')
+def compute_tfidf_dists(train_gen, test_gen):
+    tfidf_model = tools.do_unpickle(FLAGS.data_dir + '/tfidf_model.pkl')
 
     def get_dists(data, fname):
         qs = [' '.join(q_terms) for q_terms in data[0]]
@@ -103,15 +114,12 @@ def compute_tfidf_dists(train_data, test_data):
         ixs = data[2][:, :3]
         np.savez(fname, dists=np.hstack([ixs, np.array([dists]).T]))
 
-    get_dists(train_data, '../data/dedup/train_tfidf_cosine.npz')
-    get_dists(test_data, '../data/dedup/test_tfidf_cosine.npz')
+    get_dists(train_gen, FLAGS.data_dir + '/train_tfidf_cosine.npz')
+    get_dists(test_gen, FLAGS.data_dir + '/test_tfidf_cosine.npz')
 
 
-def compute_fasttext_dists():
-    train_data_raw = tools.do_unpickle('../data/dedup/train_data_raw.pkl')
-    test_data_raw = tools.do_unpickle('../data/dedup/test_data_raw.pkl')
-
-    model = FastText.load_fasttext_format('../data/dedup/cc.ru.300.bin')
+def compute_fasttext_dists(train_gen_raw, test_gen_raw):
+    model = FastText.load_fasttext_format(FLAGS.data_dir + '/cc.ru.300.bin')
     # model.wv.most_similar('ватт')
 
     def get_dists(data, fname):
@@ -134,8 +142,8 @@ def compute_fasttext_dists():
                                            mean, median, std])
         np.savez(fname, dists=dists)
 
-    get_dists(train_data_raw, '../data/dedup/train_fasttext_cosine.npz')
-    get_dists(test_data_raw, '../data/dedup/test_fasttext_cosine.npz')
+    get_dists(train_gen_raw, FLAGS.data_dir + '/train_fasttext_cosine.npz')
+    get_dists(test_gen_raw, FLAGS.data_dir + '/test_fasttext_cosine.npz')
 
 
 #########################################################################
@@ -194,7 +202,7 @@ def save_letor_txt(train_sim_ftrs, test_sim_ftrs, vali=False):
     X_train, qst_train, X_test, qst_test = letor_prepare(
         train_sim_ftrs, test_sim_ftrs)
 
-    to_letor(X_test, qst_test, '../data/dedup/test_letor.txt')
+    to_letor(X_test, qst_test, FLAGS.data_dir + '/test_letor.txt')
 
     if vali:
         hashtag = qst_train[:, :2]  # ['qid', 'synid']
@@ -203,11 +211,11 @@ def save_letor_txt(train_sim_ftrs, test_sim_ftrs, vali=False):
             hashtag.unique(), test_size=0.1, random_state=42)
         cond = hashtag.isin(hash_train).values
         to_letor(X_train[cond], qst_train[cond],
-                 '../data/dedup/train_letor.txt')
+                 FLAGS.data_dir + '/train_letor.txt')
         to_letor(X_train[~cond], qst_train[~cond],
-                 '../data/dedup/vali_letor.txt')
+                 FLAGS.data_dir + '/vali_letor.txt')
     else:
-        to_letor(X_train, qst_train, '../data/dedup/train_letor.txt')
+        to_letor(X_train, qst_train, FLAGS.data_dir + '/train_letor.txt')
 
 
 def _int32_feature(value):
@@ -264,8 +272,8 @@ def to_letor_example(train_sim_ftrs, test_sim_ftrs):
 
         writer.close()
 
-    save_one(X_train, qst_train, '../data/dedup/train_letor.tfrecord')
-    save_one(X_test, qst_test, '../data/dedup/test_letor.tfrecord')
+    save_one(X_train, qst_train, FLAGS.data_dir + '/train_letor.tfrecord')
+    save_one(X_test, qst_test, FLAGS.data_dir + '/test_letor.tfrecord')
 
 
 def dists_from_numpy(fname, tag):
@@ -280,17 +288,17 @@ def dists_from_numpy(fname, tag):
 
 def load_sim_ftrs(with_extra=False):
     test_sim_ftrs = tools.load_samples(
-        '../data/dedup/test_sim_ftrs.npz', key='vals')
+        FLAGS.data_dir + '/test_sim_ftrs.npz', key='vals')
     train_sim_ftrs = tools.load_samples(
-        '../data/dedup/train_sim_ftrs.npz', key='vals')
+        FLAGS.data_dir + '/train_sim_ftrs.npz', key='vals')
 
     test_sim_ftrs.drop_duplicates(['qid', 'synid', 'fid'], inplace=True)
     train_sim_ftrs.drop_duplicates(['qid', 'synid', 'fid'], inplace=True)
 
     test_tfidf_cos = dists_from_numpy(
-        '../data/dedup/test_tfidf_cosine.npz', 'tfidf')
+        FLAGS.data_dir + '/test_tfidf_cosine.npz', 'tfidf')
     train_tfidf_cos = dists_from_numpy(
-        '../data/dedup/train_tfidf_cosine.npz', 'tfidf')
+        FLAGS.data_dir + '/train_tfidf_cosine.npz', 'tfidf')
 
     test_sim_ftrs = test_sim_ftrs.merge(
         test_tfidf_cos, on=['qid', 'synid', 'fid'])
@@ -298,9 +306,9 @@ def load_sim_ftrs(with_extra=False):
         train_tfidf_cos, on=['qid', 'synid', 'fid'])
 
     # test_ft_cos = dists_from_numpy(
-    #     '../data/dedup/test_fasttext_cosine.npz', 'ft')
+    #     FLAGS.data_dir + '/test_fasttext_cosine.npz', 'ft')
     # train_ft_cos = dists_from_numpy(
-    #     '../data/dedup/train_fasttext_cosine.npz', 'ft')
+    #     FLAGS.data_dir + '/train_fasttext_cosine.npz', 'ft')
 
     # test_sim_ftrs = test_sim_ftrs.merge(
     #     test_ft_cos, on=['qid', 'synid', 'fid'])
@@ -313,12 +321,12 @@ def load_sim_ftrs(with_extra=False):
     if with_extra:
         print("WARNING: Loading extra features!")
         test_extra = tools.load_samples(
-            '../data/dedup/test_sim_ftrs_extra.npz', key='vals')
+            FLAGS.data_dir + '/test_sim_ftrs_extra.npz', key='vals')
         usecols = ['qid', 'synid', 'fid'] + \
             list(set(test_extra.columns).difference(COLNAMES))
         test_extra = test_extra[usecols]
         train_extra = tools.load_samples(
-            '../data/dedup/train_sim_ftrs_extra.npz', key='vals')
+            FLAGS.data_dir + '/train_sim_ftrs_extra.npz', key='vals')
         train_extra = train_extra[usecols]
 
         # unite with extra
@@ -330,8 +338,11 @@ def load_sim_ftrs(with_extra=False):
     return train_sim_ftrs, test_sim_ftrs
 
 
-def main():
-    samples = tools.load_samples('../data/dedup/samples.npz')
+def main(argv):
+    if not os.path.exists(FLAGS.data_dir):
+        os.makedirs(FLAGS.data_dir)
+
+    samples = tools.load_samples(FLAGS.data_dir + '/samples.npz')
 
     # exclude samples not found in TOP
     synids_exclude = set(samples[samples['ix'] == -1]['synid'].unique())
@@ -344,60 +355,59 @@ def main():
     sids = samples[samples['synid'] != -1]['synid'].unique()
     fids = samples['fid'].unique()
 
-    raw = False
-    corpus = tools.load_samples(
-        '../data/dedup/corpus%s.npz' % ('_raw' if raw else ''))
+    corpus = tools.load_samples(FLAGS.data_dir + '/corpus.npz')
 
     qid2text = get_id2text(corpus, 'qid', qids)
     sid2text = get_id2text(corpus, 'synid', sids)
     fid2text = get_id2text(corpus, 'fid', fids)
 
-    vals = corpus[corpus['train'] != 0]['text'].values
-    informative_terms = set([w for s in vals for w in s.split()])
-    with io.open('../data/dedup/vocab.txt', 'w', encoding='utf8') as f:
-        for term in informative_terms:
-            f.write(term + '\n')
+    # vals = corpus[corpus['train'] != 0]['text'].values
+    # informative_terms = set([w for s in vals for w in s.split()])
+    # with io.open(FLAGS.data_dir + '/vocab.txt', 'w', encoding='utf8') as f:
+    #     for term in informative_terms:
+    #         f.write(term + '\n')
 
-    train_data = input_data(
-        samples[samples['train'] == 1], fid2text, sid2text, qid2text)
-    test_data = input_data(
-        samples[samples['train'] == 0], fid2text, sid2text, qid2text)
-    tools.do_pickle(train_data, '../data/dedup/train_data%s.pkl' %
-                    ('_raw' if raw else ''))
-    tools.do_pickle(test_data, '../data/dedup/test_data%s.pkl' %
-                    ('_raw' if raw else ''))
+    def gen_pairs():
+        if 'train' in samples.columns:
+            train_gen = gen_data(
+                samples[samples['train'] == 1], fid2text, sid2text, qid2text)
+            test_samples = samples[samples['train'] == 0]
+        else:
+            train_gen = iter(())
+            test_samples = samples
 
-    #########################################################################
+        test_gen = gen_data(test_samples, fid2text, sid2text, qid2text)
+        return train_gen, test_gen
 
-    train_data = tools.do_unpickle('../data/dedup/train_data.pkl')
-    test_data = tools.do_unpickle('../data/dedup/test_data.pkl')
-    # compute_tfidf_dists(train_data, test_data)
-    # compute_fasttext_dists()
+    if FLAGS.build_features:
+        if FLAGS.build_tfidf:
+            compute_tfidf_dists(*gen_pairs())
+        if FLAGS.build_fasttext:
+            # do not pass traslited words
+            compute_fasttext_dists(*gen_pairs())
+        if FLAGS.build_tfrecord:
+            train_gen, test_gen = gen_pairs()
+            to_example(train_gen, FLAGS.data_dir + '/train.tfrecord')
+            to_example(test_gen, FLAGS.data_dir + '/test.tfrecord')
 
-    # to_example(train_data, '../data/dedup/train.tfrecord')
-    # to_example(test_data, '../data/dedup/test.tfrecord')
-
-    # sub_test = [v[:1000] for v in test_data]
-    # vals, columns = test_sim_ftrs
-    test_sim_ftrs = get_similarity_features(
-        test_data, '../data/dedup/test_sim_ftrs.npz')
-    train_sim_ftrs = get_similarity_features(
-        train_data, '../data/dedup/train_sim_ftrs.npz')
-    # test_extra = get_similarity_features(
-    #     test_data, '../data/dedup/test_sim_ftrs_extra.npz', True)
-    # train_extra = get_similarity_features(
-    #     train_data, '../data/dedup/train_sim_ftrs_extra.npz', True)
+        train_gen, test_gen = gen_pairs()
+        # data_gen, output_file, extra = test_gen, FLAGS.data_dir + '/test_sim_ftrs.npz', False
+        test_sim_ftrs = get_similarity_features(
+            test_gen, FLAGS.data_dir + '/test_sim_ftrs.npz')
+        train_sim_ftrs = get_similarity_features(
+            train_gen, FLAGS.data_dir + '/train_sim_ftrs.npz')
 
     train_sim_ftrs, test_sim_ftrs = load_sim_ftrs(with_extra=False)
     save_letor_txt(train_sim_ftrs, test_sim_ftrs, vali=True)
 
     # to_letor_example(train_sim_ftrs, test_sim_ftrs)
 
-    # output_file = '../data/dedup/test_sim_ftrs.npz'
-    # vals = test_sim_ftrs.values
-    # vals = np.array(vals, dtype=np.float32)
-    # np.savez(output_file, vals=vals, columns=test_sim_ftrs.columns)
 
+if __name__ == '__main__':
+    flags.mark_flag_as_required("data_dir")
 
-if __name__ == "__main__":
-    pass
+    if True:
+        sys.argv += ['--data_dir=../data/dedup/phase2/', '--build_features']
+        FLAGS(sys.argv)
+    else:
+        app.run(main)

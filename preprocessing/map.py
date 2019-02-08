@@ -3,7 +3,7 @@ Sample command lines:
 
 python3 preprocessing/map.py \
 --samples_file=../data/dedup/samples_test.npz \
---corpus_save=../data/dedup/corpus_test.npz 
+--corpus_file=../data/dedup/corpus_test.npz 
 
 """
 
@@ -21,13 +21,12 @@ import sys
 from nltk.corpus import stopwords
 from collections import Counter
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.feature_extraction.text import CountVectorizer
 
 flags.DEFINE_bool("notranslit", False,
                   "don't transliterate english to cyrillic")
 flags.DEFINE_bool("build_tfidf", False, "build tfidf model")
 flags.DEFINE_string("samples_file", None, "path to samples numpy file")
-flags.DEFINE_string("corpus_save", None, "path to save corpus numpy file")
+flags.DEFINE_string("corpus_file", None, "path to save corpus numpy file")
 flags.DEFINE_string("mongo_host", tools.c_HOST, "MongoDb host")
 flags.DEFINE_string("feed_db", '1cfreshv4', "feed mongodb database name")
 flags.DEFINE_string("release_db", 'release', "master mongodb database name")
@@ -94,7 +93,7 @@ def make_corpus():
 
     corpus = np.array(corpus)
     columns = ['qid', 'synid', 'fid', 'train', 'text']
-    np.savez(FLAGS.corpus_save, samples=corpus, columns=columns)
+    np.savez(FLAGS.corpus_file, samples=corpus, columns=columns)
 
     return corpus, columns
 
@@ -128,11 +127,11 @@ def main(argv):
 
 if __name__ == '__main__':
     flags.mark_flag_as_required("samples_file")
-    flags.mark_flag_as_required("corpus_save")
+    flags.mark_flag_as_required("corpus_file")
 
     if False:
         sys.argv += ['--samples_file=../data/dedup/samples_test.npz',
-                     '--corpus_save=../data/dedup/corpus_test.npz']
+                     '--corpus_file=../data/dedup/corpus_test.npz']
         FLAGS(sys.argv)
     else:
         app.run(main)
