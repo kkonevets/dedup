@@ -6,5 +6,10 @@ else
     file=~/.bashrc
 fi
 
-echo -e "export "PYTHONPATH=\"""\$PYTHONPATH:$PWD\""" >> $file
-echo -e "now run this:\nsource $file"
+str="export "PYTHONPATH=\"""\$PYTHONPATH:$PWD\"""
+
+if ! grep -Fxq "$str" $file 
+then
+    echo -e "$str" >> $file
+    echo -e "now run this:\nsource $file"
+fi
