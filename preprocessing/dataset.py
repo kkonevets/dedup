@@ -2,9 +2,10 @@ r"""
 Sample command lines:
 
 python3 preprocessing/dataset.py \
---data_dir=../data/dedup/phase2/ \
+--data_dir=../data/dedup/phase1/ \
+--build_tfidf \
 --build_features \
---ftidf
+--tfidf
 
 """
 
@@ -68,16 +69,18 @@ def to_example(data, filename):
 
 
 def compute_tfidf_dists(train_gen, test_gen):
-    tfidf_model = tools.do_unpickle(FLAGS.data_dir + '/tfidf_model.pkl')
+    tfidf_model = tools.do_unpickle('../data/dedup/tfidf_model.pkl')
 
     def get_dists(data, fname):
-        qs = [' '.join(q_terms) for q_terms in data[0]]
-        ds = [' '.join(d_terms) for d_terms in data[1]]
+        qs, ds, ixs = [], [], []
+        for q_terms, d_terms, _ixs in data:
+            qs.append(' '.join(q_terms))
+            ds.append(' '.join(d_terms))
+            ixs.append(_ixs[:3])
         qvecs = tfidf_model.transform(qs)
         dvecs = tfidf_model.transform(ds)
 
         dists = paired_cosine_distances(qvecs, dvecs)
-        ixs = data[2][:, :3]
         np.savez(fname, dists=np.hstack([ixs, np.array([dists]).T]))
 
     get_dists(train_gen, FLAGS.data_dir + '/train_tfidf_cosine.npz')
@@ -164,19 +167,17 @@ def main(argv):
 
     prod = Producer(FLAGS.data_dir, COLNAMES)
 
-    if FLAGS.build_features:
-        if FLAGS.build_tfidf:
-            compute_tfidf_dists(*prod.gen_pairs())
-        if FLAGS.build_fasttext:
-            # do not pass traslited words
-            compute_fasttext_dists(*prod.gen_pairs())
-        if FLAGS.build_tfrecord:
-            train_gen, test_gen = prod.gen_pairs()
-            to_example(train_gen, FLAGS.data_dir + '/train.tfrecord')
-            to_example(test_gen, FLAGS.data_dir + '/test.tfrecord')
-
+    if FLAGS.build_tfidf:
+        compute_tfidf_dists(*prod.gen_pairs())
+    if FLAGS.build_fasttext:
+        # do not pass traslited words
+        compute_fasttext_dists(*prod.gen_pairs())
+    if FLAGS.build_tfrecord:
         train_gen, test_gen = prod.gen_pairs()
-        # data_gen, output_file = test_gen, FLAGS.data_dir + '/test_sim_ftrs.npz'
+        to_example(train_gen, FLAGS.data_dir + '/train.tfrecord')
+        to_example(test_gen, FLAGS.data_dir + '/test.tfrecord')
+    if FLAGS.build_features:
+        train_gen, test_gen = prod.gen_pairs()
         test_sim_ftrs = textsim.get_similarity_features(
             test_gen, COLNAMES, FLAGS.data_dir + '/test_sim_ftrs.npz')
         train_sim_ftrs = textsim.get_similarity_features(
@@ -192,7 +193,8 @@ if __name__ == '__main__':
     flags.mark_flag_as_required("data_dir")
 
     if True:
-        sys.argv += ['--data_dir=../data/dedup/phase2/', '--build_features']
+        sys.argv += ['--data_dir=../data/dedup/phase1/',
+                     '--build_features', '--build_tfidf', '--tfidf']
         FLAGS(sys.argv)
     else:
         app.run(main)

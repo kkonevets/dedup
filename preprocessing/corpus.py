@@ -2,8 +2,8 @@ r"""
 Sample command lines:
 
 python3 preprocessing/corpus.py \
---samples_file=../data/dedup/samples_test.npz \
---corpus_file=../data/dedup/corpus_test.npz 
+--data_dir=../data/dedup/phase1 \
+--build_tfidf
 
 """
 
@@ -14,19 +14,16 @@ import json
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
-import pymongo
 from pymongo import MongoClient
 import io
 import sys
 from nltk.corpus import stopwords
-from collections import Counter
 from sklearn.feature_extraction.text import TfidfVectorizer
 
+flags.DEFINE_string("data_dir", None, "data directory")
 flags.DEFINE_bool("notranslit", False,
                   "don't transliterate english to cyrillic")
 flags.DEFINE_bool("build_tfidf", False, "build tfidf model")
-flags.DEFINE_string("samples_file", None, "path to samples numpy file")
-flags.DEFINE_string("corpus_file", None, "path to save corpus numpy file")
 flags.DEFINE_string("mongo_host", tools.c_HOST, "MongoDb host")
 flags.DEFINE_string("feed_db", '1cfreshv4', "feed mongodb database name")
 flags.DEFINE_string("release_db", 'release', "master mongodb database name")
@@ -55,45 +52,43 @@ def make_corpus():
     id2brand = {c['_id']: c for c in db.brands.find({}, projection=['name'])}
     mid2brand = {c['_id']: c for c in mdb.brands.find({}, projection=['name'])}
 
-    sid2et = {s['id']: (s['name'], e) for e in db.etalons.find({})
-              for s in e.get('synonyms', [])}
-
-    samples = tools.load_samples(FLAGS.samples_file)
+    samples = tools.load_samples(FLAGS.data_dir + '/samples.npz')
     if 'train' not in samples.columns:
         samples['train'] = 0  # test
 
     translit = not FLAGS.notranslit
 
-    subdf = samples[samples['synid'] == -1]
-    subdf = subdf[['qid', 'train']].drop_duplicates()
-    for _id, train in tqdm(subdf.values):
-        et = db.etalons.find_one({'_id': _id})
-        text = tools.constitute_text(et['name'], et, id2brand)
-        corpus.append((_id, None, None, train,
+    ###############################################################
+
+    if FLAGS.build_tfidf:
+        total = mdb.etalons.count_documents({})
+        ets = mdb.etalons.find({}, projection=['name', 'brandId'])
+    else:
+        ids = list(samples['fid'].unique())
+        total = len(ids)
+        ets = mdb.etalons.find({'_id': {'$in': ids}},
+                               projection=['name', 'brandId'])
+
+    for et in tqdm(ets, total=total):
+        text = tools.constitute_text(et['name'], et, mid2brand)
+        corpus.append((None, None, et['_id'], None,
                        tools.normalize(text, translit=translit)))
 
-    subdf = samples[samples['synid'] != -1]
-    subdf = subdf[['synid', 'train']].drop_duplicates()
+    ###############################################################
+
+    sid2et = {s['id']: (s['name'], e) for e in db.etalons.find({})
+              for s in e.get('synonyms', [])}
+
+    subdf = samples[['synid', 'train']].drop_duplicates()
     for _id, train in tqdm(subdf.values):
         name, et = sid2et[_id]
         text = tools.constitute_text(name, et, id2brand)
         corpus.append((None, _id, None, train,
                        tools.normalize(text, translit=translit)))
 
-    if FLAGS.build_tfidf:
-        ids = [et['_id'] for et in db.etalons.find({}, projection=['_id'])]
-    else:
-        ids = set(samples['fid'].unique())
-
-    for _id in tqdm(ids):
-        et = mdb.etalons.find_one({'_id': _id})
-        text = tools.constitute_text(et['name'], et, mid2brand)
-        corpus.append((None, None, et['_id'], None,
-                       tools.normalize(text, translit=translit)))
-
     corpus = np.array(corpus)
     columns = ['qid', 'synid', 'fid', 'train', 'text']
-    np.savez(FLAGS.corpus_file, samples=corpus, columns=columns)
+    np.savez(FLAGS.data_dir + '/corpus.npz', samples=corpus, columns=columns)
 
     return corpus, columns
 
@@ -126,12 +121,10 @@ def main(argv):
 
 
 if __name__ == '__main__':
-    flags.mark_flag_as_required("samples_file")
-    flags.mark_flag_as_required("corpus_file")
+    flags.mark_flag_as_required("data_dir")
 
     if False:
-        sys.argv += ['--samples_file=../data/dedup/samples_test.npz',
-                     '--corpus_file=../data/dedup/corpus_test.npz']
+        sys.argv += ['--data_dir=../data/dedup/phase1', '--build_tfidf']
         FLAGS(sys.argv)
     else:
         app.run(main)

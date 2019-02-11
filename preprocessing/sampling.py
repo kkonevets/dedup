@@ -1,3 +1,10 @@
+r"""
+Sample command lines:
+
+python3 preprocessing/sampling.py \
+--data_dir=../data/dedup/phase1/ \
+
+"""
 from absl import flags
 from absl import app
 from sklearn.model_selection import train_test_split
@@ -18,10 +25,13 @@ from tqdm import tqdm
 import urllib
 import json
 import tools
+import sys
 
+flags.DEFINE_string("data_dir", None, "data directory path")
 flags.DEFINE_integer("nrows", 100, "The TOP number of rows to query")
 flags.DEFINE_integer("nchoices", 5, "The number of rows to sample from nrows")
 flags.DEFINE_bool("for_test", False, "sample just for test")
+flags.DEFINE_bool("no_prior", False, "sample just for test")
 flags.DEFINE_string("mongo_host", tools.c_HOST, "MongoDb host")
 flags.DEFINE_string("solr_host", tools.ml_HOST, "SOLR host")
 flags.DEFINE_string("feed_db", '1cfreshv4', "feed mongodb database name")
@@ -76,12 +86,12 @@ def save_positions(positions):
                          'el_id', 'el_name', 'el_brand', 'i']
     positions['equal'] = positions['et_name'].apply(
         tools.normalize) == positions['el_name'].apply(tools.normalize)
-    positions.to_excel('../data/dedup/solr_positions.xlsx', index=False)
+    positions.to_excel(FLAGS.data_dir + '/solr_positions.xlsx', index=False)
 
     rel1 = (positions['i'].value_counts()/positions.shape[0]).head(40)
     print(rel1)
 
-    # positions = pd.read_excel('../data/dedup/solr_positions.xlsx')
+    # positions = pd.read_excel(FLAGS.data_dir + '/solr_positions.xlsx')
     excl = positions[~positions['i'].isin([-1, -2])]
     rel2 = (excl['i'].value_counts()/positions.shape[0])
     print(rel2.sum())
@@ -95,7 +105,7 @@ def save_positions(positions):
     fig = ax.get_figure()
     ax.set_xlabel("top N")
     ax.set_ylabel("recall")
-    fig.savefig('../data/dedup/cumsum.pdf')
+    fig.savefig(FLAGS.data_dir + '/cumsum.pdf')
 
     incl = positions[positions['i'].isin([-1, -2])]
     incl['i'].value_counts()
@@ -103,9 +113,9 @@ def save_positions(positions):
 
 
 def get_prior(anew=False):
-    prior_file = '../data/dedup/priors.csv'
+    prior_file = FLAGS.data_dir + '/priors.csv'
     if anew:
-        positions = pd.read_excel('../data/dedup/solr_positions.xlsx')
+        positions = pd.read_excel(FLAGS.data_dir + '/solr_positions.xlsx')
         prior = positions['i'].value_counts()/positions.shape[0]
         prior.sort_index(ascending=True, inplace=True)
         prior.to_csv(prior_file, header=False)
@@ -213,7 +223,7 @@ def query_one(id2brand, prior, et):
             continue
         found = query_solr(curname, FLAGS.nrows)
 
-        if len(found):
+        if prior is not None and len(found):
             samples += sample_one(found, et, syn['id'], prior)
 
         if not FLAGS.for_test:
@@ -273,7 +283,7 @@ def solr_sample(existing):
     positions, samples = [], []
     np.random.seed(0)
 
-    if FLAGS.for_test:
+    if FLAGS.for_test or FLAGS.no_prior:
         prior = None
     else:
         prior = get_prior(anew=True)
@@ -296,30 +306,35 @@ def solr_sample(existing):
                 # if len(positions) > 1000:
                 #     break
 
+    if FLAGS.no_prior:
+        save_positions(positions)
+        return
+
     samples = pd.DataFrame(samples)
     columns = ['qid', 'synid', 'fid', 'score', 'target', 'ix']  # , 'train'
     samples.columns = columns
 
     if not FLAGS.for_test:
-        save_positions(positions)
-
         qids = samples['qid'].unique()
         qids_train, qids_test = train_test_split(
             qids, test_size=0.33, random_state=42)
         samples['train'] = samples['qid'].isin(qids_train).astype(int)
 
     tag = '_test' if FLAGS.for_test else ''
-    np.savez('../data/dedup/samples%s.npz' % tag,
+    np.savez(FLAGS.data_dir + '/samples%s.npz' % tag,
              samples=samples.values, columns=samples.columns)
 
 
 def main(argv):
     del argv  # Unused.
 
+    if not os.path.exists(FLAGS.data_dir):
+        os.makedirs(FLAGS.data_dir)
+
     existing = get_existing(anew=False)
 
     if FLAGS.for_test:
-        samples = tools.load_samples('../data/dedup/samples.npz')
+        samples = tools.load_samples(FLAGS.data_dir + '/samples.npz')
         qids = set(samples[samples['train'] == 0]['qid'].unique())
         filtered = [el for el in existing if el['_id'] in qids]
         solr_sample(filtered)
@@ -328,4 +343,10 @@ def main(argv):
 
 
 if __name__ == '__main__':
-    app.run(main)
+    flags.mark_flag_as_required("data_dir")
+
+    if False:
+        sys.argv += ['--data_dir=../data/dedup/phase1']
+        FLAGS(sys.argv)
+    else:
+        app.run(main)

@@ -1,3 +1,13 @@
+r"""
+Sample command lines:
+
+python3 preprocessing/simboost.py \
+--data_dir=../data/dedup/phase1/ \
+
+"""
+
+from absl import flags
+from absl import app
 import xgboost as xgb
 from xgboost import DMatrix
 from sklearn.datasets import load_svmlight_file
@@ -15,12 +25,15 @@ from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.model_selection import GridSearchCV
 from sklearn.preprocessing import StandardScaler
 from sklearn.externals import joblib
+import sys
+
+FLAGS = flags.FLAGS
 
 
-def do_rank():
-    X_train, y_train = load_svmlight_file("../data/dedup/train_letor.txt")
-    X_vali, y_vali = load_svmlight_file("../data/dedup/vali_letor.txt")
-    X_test, y_test = load_svmlight_file("../data/dedup/test_letor.txt")
+def build_ranker():
+    X_train, y_train = load_svmlight_file(FLAGS.data_dir + '/train_letor.txt')
+    X_vali, y_vali = load_svmlight_file(FLAGS.data_dir + '/vali_letor.txt')
+    X_test, y_test = load_svmlight_file(FLAGS.data_dir + '/test_letor.txt')
 
     def predict(model, X, y, groups):
         ranks = model.predict(X)
@@ -48,9 +61,9 @@ def do_rank():
                 groups.append(int(line.split("\n")[0]))
         return groups
 
-    group_train = get_groups("../data/dedup/train_letor.group")
-    group_vali = get_groups("../data/dedup/vali_letor.group")
-    group_test = get_groups("../data/dedup/test_letor.group")
+    group_train = get_groups(FLAGS.data_dir + '/train_letor.group')
+    group_vali = get_groups(FLAGS.data_dir + '/vali_letor.group')
+    group_test = get_groups(FLAGS.data_dir + '/test_letor.group')
 
     train_dmatrix = DMatrix(X_train, y_train)
     vali_dmatrix = DMatrix(X_vali, y_vali)
@@ -74,7 +87,7 @@ def do_rank():
     tools.pprint(predict(xgb_ranker, test_dmatrix, y_test, group_test))
     # print(xgb_ranker.eval(vali_dmatrix))
 
-    joblib.dump(xgb_ranker, '../data/dedup/xgb_ranker.model')
+    joblib.dump(xgb_ranker, FLAGS.data_dir + '/xgb_ranker.model')
 
     # np.savez('../data/dedup/ranks.npz',
     #          train=xgb_ranker.predict(train_dmatrix),
@@ -82,10 +95,10 @@ def do_rank():
     #          test=xgb_ranker.predict(test_dmatrix))
 
 
-def do_classify():
-    X_train, y_train = load_svmlight_file("../data/dedup/train_letor.txt")
-    X_vali, y_vali = load_svmlight_file("../data/dedup/vali_letor.txt")
-    X_test, y_test = load_svmlight_file("../data/dedup/test_letor.txt")
+def build_classifier():
+    X_train, y_train = load_svmlight_file(FLAGS.data_dir + '/train_letor.txt')
+    X_vali, y_vali = load_svmlight_file(FLAGS.data_dir + '/vali_letor.txt')
+    X_test, y_test = load_svmlight_file(FLAGS.data_dir + '/test_letor.txt')
 
     # ranks = np.load('../data/dedup/ranks.npz')
     # rank_train = np.reshape(ranks['train'], (-1, 1))
@@ -129,4 +142,19 @@ def do_classify():
     cm = confusion_matrix(y_test, y_pred)
     print(cm)
 
-    joblib.dump(xgb_clr, '../data/dedup/xgb_clr.model')
+    joblib.dump(xgb_clr, FLAGS.data_dir + '/xgb_clr.model')
+
+
+def main():
+    build_ranker()
+    build_classifier()
+
+
+if __name__ == "__main__":
+    flags.mark_flag_as_required("data_dir")
+
+    if True:
+        sys.argv += ['--data_dir=../data/dedup/phase1/']
+        FLAGS(sys.argv)
+    else:
+        app.run(main)

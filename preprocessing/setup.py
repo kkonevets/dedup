@@ -2,7 +2,6 @@ from distutils.core import setup
 from Cython.Build import cythonize
 from numpy import get_include
 from distutils.extension import Extension
-import numpy
 
 ext_modules = [
     Extension('dedup.lcs',
