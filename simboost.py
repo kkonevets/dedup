@@ -146,8 +146,8 @@ def build_classifier():
 
 
 def test():
-    dtest = xgb.DMatrix('../data/dedup/phase1/test_letor.txt')
-    group_test = get_groups(FLAGS.data_dir + '/test_letor.group')
+    dtest = xgb.DMatrix('../data/dedup/phase2/test_letor.txt')
+    group_test = get_groups('../data/dedup/phase2/test_letor.group')
 
     xgb_ranker = joblib.load('../data/dedup/phase1/xgb_ranker.model')
     xgb_clr = joblib.load('../data/dedup/phase1/xgb_clr.model')
