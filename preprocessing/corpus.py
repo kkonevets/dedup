@@ -2,7 +2,8 @@ r"""
 Sample command lines:
 
 python3 preprocessing/corpus.py \
---data_dir=../data/dedup/phase2 \
+--data_dir=../data/dedup/phase1 \
+--build_tfidf
 """
 
 from absl import flags
@@ -69,7 +70,7 @@ def make_corpus():
 
     for et in tqdm(ets, total=total):
         text = tools.constitute_text(et['name'], et, mid2brand)
-        corpus.append((None, None, et['_id'], None,
+        corpus.append((None, et['_id'], None,
                        tools.normalize(text, translit=translit)))
 
     ###############################################################
@@ -81,11 +82,11 @@ def make_corpus():
     for _id, train in tqdm(subdf.values):
         name, et = sid2et[_id]
         text = tools.constitute_text(name, et, id2brand)
-        corpus.append((None, _id, None, train,
+        corpus.append((_id, None, train,
                        tools.normalize(text, translit=translit)))
 
     corpus = np.array(corpus)
-    columns = ['qid', 'synid', 'fid', 'train', 'text']
+    columns = ['synid', 'fid', 'train', 'text']
     np.savez(FLAGS.data_dir + '/corpus.npz', samples=corpus, columns=columns)
 
     return corpus, columns

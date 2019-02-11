@@ -94,8 +94,7 @@ class Letor:
             g.write('%d\n' % (gcount + 1))
 
     def to_letor_example(self, train_ftrs, test_ftrs):
-        X_train, qst_train, X_test, qst_test = self._prepare(
-            train_ftrs, test_ftrs)
+        X_train, qst_train, X_test, qst_test = self._prepare()
 
         X_train = X_train.astype(np.float32)
         X_test = X_test.astype(np.float32)

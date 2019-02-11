@@ -2,8 +2,7 @@ r"""
 Sample command lines:
 
 python3 preprocessing/sampling.py \
---data_dir=../data/dedup/phase2/ \
---for_test
+--data_dir=../data/dedup/phase1/ 
 
 """
 from absl import flags
@@ -94,12 +93,12 @@ def save_positions(positions):
 
     # positions.to_excel(FLAGS.data_dir + '/solr_positions.xlsx', index=False)
 
-    rel1 = (positions['i'].value_counts()/positions.shape[0]).head(40)
+    ps = pd.Series([p['i'] for p in positions])
+    rel1 = (ps.value_counts()/ps.shape[0]).head(40)
     print(rel1)
 
-    # positions = pd.read_excel(FLAGS.data_dir + '/solr_positions.xlsx')
-    excl = positions[~positions['i'].isin([-1, -2])]
-    rel2 = (excl['i'].value_counts()/positions.shape[0])
+    psex = pd.Series([p['i'] for p in positions if p['i'] not in {-1, -2}])
+    rel2 = (psex.value_counts()/ps.shape[0])
     print(rel2.sum())
 
     import matplotlib.pyplot as plt
@@ -113,12 +112,8 @@ def save_positions(positions):
     ax.set_ylabel("recall")
     fig.savefig(FLAGS.data_dir + '/cumsum.pdf')
 
-    incl = positions[positions['i'].isin([-1, -2])]
-    incl['i'].value_counts()
-    # pos_sort = positions.sort_values('i', ascending=False)
 
-
-def get_prior(anew=False):
+def get_prior(anew=True):
     prior_file = FLAGS.data_dir + '/priors.csv'
     if anew:
         client = MongoClient(FLAGS.mongo_host)
@@ -150,7 +145,7 @@ def append_position(positions, found, et, curname, mname, bname, bcs):
             break
 
     if len(rec) == 3:
-        rec += [None, mname, '', -2]
+        rec += [et['srcId'], mname, '', -2]
         positions.append(rec)
 
 
@@ -215,7 +210,7 @@ def query_one(id2brand, prior, et):
     met = mdb.etalons.find_one(
         {'_id': et['srcId']}, projection=['name', 'synonyms'])
     msyns = ' '.join([s['name'] for s in met.get('synonyms', [])])
-    msplited = prog.sub(' ', met['name'] + ' ' + msyns).lower().split()
+    msplited = set(prog.sub(' ', met['name'] + ' ' + msyns).lower().split())
 
     samples, positions = [], []
 
@@ -223,7 +218,7 @@ def query_one(id2brand, prior, et):
         curname = syn['name'] + ' ' + bname
         splited = prog.sub(' ', curname).lower().split()
 
-        common = set(msplited).intersection(splited)
+        common = msplited.intersection(splited)
         if common == set() or len(splited) <= 2:
             continue
 
@@ -252,8 +247,6 @@ def get_id2bc(dbname):
             id2bc.append((et['_id'], int(bc)))
 
     df = pd.DataFrame(id2bc)
-    df.columns = ('_id', 'barcode')
-
     return df
 
 
@@ -299,7 +292,7 @@ def solr_sample(existing):
 
     wraper = partial(query_one, id2brand, prior)
 
-    def do_iterate():
+    def do_iterate(db, existing):
         for el in existing:
             et = db.etalons.find_one({'_id': el['_id']})
             et['srcId'] = el['_id_release']
@@ -308,7 +301,7 @@ def solr_sample(existing):
     nworkers = mp.cpu_count()
     with mp.Pool(20) as p:  # maxtasksperchild=5000
         with tqdm(total=len(existing)) as pbar:
-            for samps, poss in tqdm(p.imap_unordered(wraper, do_iterate())):
+            for samps, poss in tqdm(p.imap_unordered(wraper, do_iterate(db, existing))):
                 samples += samps
                 positions += poss
                 pbar.update()
@@ -354,7 +347,7 @@ if __name__ == '__main__':
     flags.mark_flag_as_required("data_dir")
 
     if False:
-        sys.argv += ['--data_dir=../data/dedup/phase1', '--for_test']
+        sys.argv += ['--data_dir=../data/dedup/phase1']
         FLAGS(sys.argv)
     else:
         app.run(main)

@@ -28,15 +28,11 @@ class Producer:
         return id2text
 
     def gen_data(self, cur_samples):
-        fid2text, sid2text, qid2text = self.fid2text, self.sid2text, self.qid2text
+        fid2text, sid2text = self.fid2text, self.sid2text
         for row in tools.tqdm(cur_samples.itertuples(), total=len(cur_samples)):
+            q_splited = sid2text[row.synid].split()
             d_splited = fid2text[row.fid].split()
-            if row.synid != -1:
-                qtext = sid2text[row.synid]
-            else:
-                qtext = qid2text[row.qid]
 
-            q_splited = qtext.split()
             if row.target == 0 and ' '.join(d_splited) == ' '.join(q_splited):
                 continue
 
@@ -51,18 +47,13 @@ class Producer:
 
         # exclude samples not found in TOP
         synids_exclude = set(samples[samples['ix'] == -1]['synid'].unique())
-        synids_exclude.discard(-1)
         samples = samples[~samples['synid'].isin(synids_exclude)]
-        qids_exclude = samples[samples['ix'] == -1]['qid'].unique()
-        samples = samples[~samples['qid'].isin(qids_exclude)]
 
-        qids = samples[samples['synid'] == -1]['qid'].unique()
         sids = samples[samples['synid'] != -1]['synid'].unique()
         fids = samples['fid'].unique()
 
         corpus = tools.load_samples(self.data_dir + '/corpus.npz')
 
-        qid2text = self.get_id2text(corpus, 'qid', qids)
         sid2text = self.get_id2text(corpus, 'synid', sids)
         fid2text = self.get_id2text(corpus, 'fid', fids)
 
@@ -72,5 +63,5 @@ class Producer:
         #     for term in informative_terms:
         #         f.write(term + '\n')
 
-        self.samples, self.qid2text, self.sid2text, self.fid2text = \
-            samples, qid2text, sid2text, fid2text
+        self.samples, self.sid2text, self.fid2text = \
+            samples, sid2text, fid2text

@@ -173,14 +173,12 @@ def main(argv):
     letor = Letor(FLAGS.data_dir, train_sim_ftrs, test_sim_ftrs)
     letor.save_txt(vali=True)
 
-    # to_letor_example(train_sim_ftrs, test_sim_ftrs, FLAGS.data_dir)
-
 
 if __name__ == '__main__':
     flags.mark_flag_as_required("data_dir")
 
     if True:
-        sys.argv += ['--data_dir=../data/dedup/phase2',
+        sys.argv += ['--data_dir=../data/dedup/phase1',
                      '--build_features', '--build_tfidf', '--tfidf']
         FLAGS(sys.argv)
     else:
