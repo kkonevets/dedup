@@ -2,8 +2,7 @@ r"""
 Sample command lines:
 
 python3 preprocessing/dataset.py \
---data_dir=../data/dedup/phase1/ \
---build_tfidf \
+--data_dir=../data/dedup/phase2/ \
 --build_features \
 --tfidf
 
@@ -77,6 +76,8 @@ def compute_tfidf_dists(train_gen, test_gen):
             qs.append(' '.join(q_terms))
             ds.append(' '.join(d_terms))
             ixs.append(_ixs[:3])
+        if len(qs) == 0:
+            return
         qvecs = tfidf_model.transform(qs)
         dvecs = tfidf_model.transform(ds)
 
@@ -192,7 +193,7 @@ def main(argv):
 if __name__ == '__main__':
     flags.mark_flag_as_required("data_dir")
 
-    if True:
+    if False:
         sys.argv += ['--data_dir=../data/dedup/phase1/',
                      '--build_features', '--build_tfidf', '--tfidf']
         FLAGS(sys.argv)

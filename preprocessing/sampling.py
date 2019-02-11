@@ -2,7 +2,8 @@ r"""
 Sample command lines:
 
 python3 preprocessing/sampling.py \
---data_dir=../data/dedup/phase1/ \
+--data_dir=../data/dedup/phase2/ \
+--for_test
 
 """
 from absl import flags
@@ -223,7 +224,7 @@ def query_one(id2brand, prior, et):
             continue
         found = query_solr(curname, FLAGS.nrows)
 
-        if prior is not None and len(found):
+        if not FLAGS.no_prior and len(found):
             samples += sample_one(found, et, syn['id'], prior)
 
         if not FLAGS.for_test:
@@ -320,8 +321,7 @@ def solr_sample(existing):
             qids, test_size=0.33, random_state=42)
         samples['train'] = samples['qid'].isin(qids_train).astype(int)
 
-    tag = '_test' if FLAGS.for_test else ''
-    np.savez(FLAGS.data_dir + '/samples%s.npz' % tag,
+    np.savez(FLAGS.data_dir + '/samples.npz',
              samples=samples.values, columns=samples.columns)
 
 
@@ -334,7 +334,7 @@ def main(argv):
     existing = get_existing(anew=False)
 
     if FLAGS.for_test:
-        samples = tools.load_samples(FLAGS.data_dir + '/samples.npz')
+        samples = tools.load_samples('../data/dedup/phase1/samples.npz')
         qids = set(samples[samples['train'] == 0]['qid'].unique())
         filtered = [el for el in existing if el['_id'] in qids]
         solr_sample(filtered)
@@ -346,7 +346,7 @@ if __name__ == '__main__':
     flags.mark_flag_as_required("data_dir")
 
     if False:
-        sys.argv += ['--data_dir=../data/dedup/phase1']
+        sys.argv += ['--data_dir=../data/dedup/phase1', '--for_test']
         FLAGS(sys.argv)
     else:
         app.run(main)
