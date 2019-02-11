@@ -82,12 +82,17 @@ def query_solr(text, rows=1):
 
 
 def save_positions(positions):
-    positions = pd.DataFrame.from_records(positions)
-    positions.columns = ['et_id', 'et_name', 'et_brand',
-                         'el_id', 'el_name', 'el_brand', 'i']
-    positions['equal'] = positions['et_name'].apply(
-        tools.normalize) == positions['el_name'].apply(tools.normalize)
-    positions.to_excel(FLAGS.data_dir + '/solr_positions.xlsx', index=False)
+    columns = ['et_id', 'et_name', 'et_brand',
+               'el_id', 'el_name', 'el_brand', 'i']
+
+    positions = [{k: pi for k, pi in zip(columns, p)} for p in positions]
+
+    client = MongoClient(FLAGS.mongo_host)
+    db = client['cache']
+    db.drop_collection('solr_positions')
+    db['solr_positions'].insert_many(positions)
+
+    # positions.to_excel(FLAGS.data_dir + '/solr_positions.xlsx', index=False)
 
     rel1 = (positions['i'].value_counts()/positions.shape[0]).head(40)
     print(rel1)
@@ -116,8 +121,11 @@ def save_positions(positions):
 def get_prior(anew=False):
     prior_file = FLAGS.data_dir + '/priors.csv'
     if anew:
-        positions = pd.read_excel(FLAGS.data_dir + '/solr_positions.xlsx')
-        prior = positions['i'].value_counts()/positions.shape[0]
+        client = MongoClient(FLAGS.mongo_host)
+        db = client['cache']
+        positions = db['solr_positions'].find({}, projection=['i'])
+        positions = pd.Series([p['i'] for p in positions])
+        prior = positions.value_counts()/positions.shape[0]
         prior.sort_index(ascending=True, inplace=True)
         prior.to_csv(prior_file, header=False)
     else:

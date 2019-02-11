@@ -240,6 +240,8 @@ def constitute_text(name, et, id2brand):
 def load_samples(filename, key='samples'):
     npzfile = np.load(filename)
     samples = pd.DataFrame(npzfile[key])
+    if len(samples) == 0:
+        return None
     samples.columns = npzfile['columns']
     return samples
 

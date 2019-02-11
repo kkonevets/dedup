@@ -28,9 +28,8 @@ from gensim.models import FastText
 import nltk
 import tensorflow as tf
 from preprocessing.producing import Producer
-from preprocessing.letor import save_letor_txt
+from preprocessing.letor import Letor
 from preprocessing.letor import INFO_COLUMNS
-from preprocessing.letor import to_letor_example
 import preprocessing.tfrecord as tfrec
 
 
@@ -117,47 +116,33 @@ def compute_fasttext_dists(train_gen_raw, test_gen_raw):
 
 
 def load_sim_ftrs():
-    def dists_from_numpy(fname, tag):
-        df = np.load(fname)['dists']
+    def dists_from_numpy(sim_ftrs, mname, tag):
+        filename = FLAGS.data_dir + '/%s_%s_cosine.npz' % (tag, mname)
+        df = np.load(filename)['dists']
         df = pd.DataFrame(df)
         columns = ['qid', 'synid', 'fid']
-        columns += ['%s%d' % (tag, i) for i in range(df.shape[1]-3)]
+        columns += ['%s%d' % (mname, i) for i in range(df.shape[1]-3)]
         df.columns = columns
         df.drop_duplicates(['qid', 'synid', 'fid'], inplace=True)
-        return df
+        return sim_ftrs.merge(df, on=['qid', 'synid', 'fid'])
 
-    test_sim_ftrs = tools.load_samples(
-        FLAGS.data_dir + '/test_sim_ftrs.npz', key='vals')
-    train_sim_ftrs = tools.load_samples(
-        FLAGS.data_dir + '/train_sim_ftrs.npz', key='vals')
+    def load_one(train=True):
+        tag = 'train' if train else 'test'
+        filename = FLAGS.data_dir + '/%s_sim_ftrs.npz' % tag
+        sim_ftrs = tools.load_samples(filename, key='vals')
+        if sim_ftrs is None:
+            return
 
-    test_sim_ftrs.drop_duplicates(['qid', 'synid', 'fid'], inplace=True)
-    train_sim_ftrs.drop_duplicates(['qid', 'synid', 'fid'], inplace=True)
+        sim_ftrs.drop_duplicates(['qid', 'synid', 'fid'], inplace=True)
+        if FLAGS.tfidf:
+            sim_ftrs = dists_from_numpy(sim_ftrs, 'tfidf', tag)
+        if FLAGS.fasttext:
+            sim_ftrs = dists_from_numpy(sim_ftrs, 'fasttext', tag)
+        sim_ftrs.fillna(-1, inplace=True)
+        return sim_ftrs
 
-    if FLAGS.tfidf:
-        test_tfidf_cos = dists_from_numpy(
-            FLAGS.data_dir + '/test_tfidf_cosine.npz', 'tfidf')
-        train_tfidf_cos = dists_from_numpy(
-            FLAGS.data_dir + '/train_tfidf_cosine.npz', 'tfidf')
-
-        test_sim_ftrs = test_sim_ftrs.merge(
-            test_tfidf_cos, on=['qid', 'synid', 'fid'])
-        train_sim_ftrs = train_sim_ftrs.merge(
-            train_tfidf_cos, on=['qid', 'synid', 'fid'])
-
-    if FLAGS.fasttext:
-        test_ft_cos = dists_from_numpy(
-            FLAGS.data_dir + '/test_fasttext_cosine.npz', 'ft')
-        train_ft_cos = dists_from_numpy(
-            FLAGS.data_dir + '/train_fasttext_cosine.npz', 'ft')
-
-        test_sim_ftrs = test_sim_ftrs.merge(
-            test_ft_cos, on=['qid', 'synid', 'fid'])
-        train_sim_ftrs = train_sim_ftrs.merge(
-            train_ft_cos, on=['qid', 'synid', 'fid'])
-
-    test_sim_ftrs.fillna(-1, inplace=True)
-    train_sim_ftrs.fillna(-1, inplace=True)
+    test_sim_ftrs = load_one(False)
+    train_sim_ftrs = load_one(True)
 
     return train_sim_ftrs, test_sim_ftrs
 
@@ -185,7 +170,8 @@ def main(argv):
             train_gen, COLNAMES, FLAGS.data_dir + '/train_sim_ftrs.npz')
 
     train_sim_ftrs, test_sim_ftrs = load_sim_ftrs()
-    save_letor_txt(train_sim_ftrs, test_sim_ftrs, FLAGS.data_dir, vali=True)
+    letor = Letor(FLAGS.data_dir, train_sim_ftrs, test_sim_ftrs)
+    letor.save_txt(vali=True)
 
     # to_letor_example(train_sim_ftrs, test_sim_ftrs, FLAGS.data_dir)
 
@@ -193,8 +179,8 @@ def main(argv):
 if __name__ == '__main__':
     flags.mark_flag_as_required("data_dir")
 
-    if False:
-        sys.argv += ['--data_dir=../data/dedup/phase1/',
+    if True:
+        sys.argv += ['--data_dir=../data/dedup/phase2',
                      '--build_features', '--build_tfidf', '--tfidf']
         FLAGS(sys.argv)
     else:
