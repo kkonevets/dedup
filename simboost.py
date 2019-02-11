@@ -65,18 +65,19 @@ def clr_predict(model, dmtx, threshold=0.4):
     return y_pred
 
 
+def get_groups(fname):
+    groups = []
+    with open(fname, "r") as f:
+        data = f.readlines()
+        for line in data:
+            groups.append(int(line.split("\n")[0]))
+    return groups
+
+
 def build_ranker():
     dtrain = xgb.DMatrix(FLAGS.data_dir + 'train_letor.txt')
     dvali = xgb.DMatrix(FLAGS.data_dir + 'vali_letor.txt')
     dtest = xgb.DMatrix(FLAGS.data_dir + 'test_letor.txt')
-
-    def get_groups(fname):
-        groups = []
-        with open(fname, "r") as f:
-            data = f.readlines()
-            for line in data:
-                groups.append(int(line.split("\n")[0]))
-        return groups
 
     group_train = get_groups(FLAGS.data_dir + '/train_letor.group')
     group_vali = get_groups(FLAGS.data_dir + '/vali_letor.group')
