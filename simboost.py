@@ -24,10 +24,40 @@ from sklearn.metrics import classification_report
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.model_selection import GridSearchCV
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import precision_recall_curve
+from sklearn.metrics import average_precision_score
+import matplotlib
+from sklearn.utils.fixes import signature
 from sklearn.externals import joblib
 import sys
 
 FLAGS = flags.FLAGS
+
+matplotlib.use('agg')
+
+
+def plot_precision_recall(y_true, probas_pred):
+    import matplotlib.pyplot as plt
+
+    average_precision = average_precision_score(y_true, probas_pred)
+    precision, recall, _ = precision_recall_curve(y_true, probas_pred)
+
+    plt.clf()
+    fig, ax = plt.subplots()
+
+    # In matplotlib < 1.5, plt.fill_between does not have a 'step' argument
+    step_kwargs = ({'step': 'post'})
+    ax.step(recall, precision, color='b', alpha=0.2, where='post')
+    ax.fill_between(recall, precision, alpha=0.2, color='b',
+                    rasterized=True, **step_kwargs)
+
+    ax.set_xlabel('Recall')
+    ax.set_ylabel('Precision')
+    ax.set_ylim([0.0, 1])
+    ax.set_xlim([0.0, 1])
+    ax.set_title('Precision-Recall curve: AP={0:0.2f}'.format(
+        average_precision))
+    fig.savefig(FLAGS.data_dir + '/prec_recal.pdf', dpi=400)
 
 
 def ranker_predict(model, dmatrix, groups):
@@ -54,6 +84,7 @@ def clr_predict(model, dmtx, threshold=0.4):
     y = dmtx.get_label()
     c = Counter(y)
     probs = model.predict(dmtx)
+    plot_precision_recall(y, probs)
     y_pred = (probs >= threshold).astype(int)
     rep = classification_report(y, y_pred, labels=[1], output_dict=True)
     rep = rep['1']
@@ -85,14 +116,14 @@ def build_ranker():
 
     params = {
         'objective': 'rank:ndcg',
-        'max_depth': 10,
+        'max_depth': 6,
         'eta': 0.1,
         'gamma': 1.0,
         'min_child_weight': 0.1,
         'eval_metric': ['ndcg@1', 'ndcg@2', 'map@2']
     }
     xgb_ranker = xgb.train(params, dtrain,
-                           num_boost_round=1000,
+                           num_boost_round=5000,
                            early_stopping_rounds=20,
                            evals=[(dvali, 'vali')])
 
@@ -139,7 +170,7 @@ def build_classifier():
                         evals=[(dvali, 'vali')])
 
     _ = clr_predict(xgb_clr, dtrain)
-    y_pred = clr_predict(xgb_clr, dtest, threshold=0.5)
+    y_pred = clr_predict(xgb_clr, dtest, threshold=0.95)
     cm = confusion_matrix(dtest.get_label(), y_pred)
     print(cm)
 

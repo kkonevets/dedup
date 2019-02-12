@@ -322,7 +322,7 @@ def solr_sample(existing):
 
     if not FLAGS.for_test:
         qids_train, qids_test = train_test_split(
-            samples['qid'].unique(), test_size=0.25, random_state=42)
+            samples['qid'].unique(), test_size=0.2, random_state=42)
         samples['train'] = samples['qid'].isin(qids_train).astype(int)
 
     X_samples = samples.values.astype(np.float32)
