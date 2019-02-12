@@ -49,13 +49,10 @@ class Producer:
         synids_exclude = set(samples[samples['ix'] == -1]['synid'].unique())
         samples = samples[~samples['synid'].isin(synids_exclude)]
 
-        sids = samples[samples['synid'] != -1]['synid'].unique()
-        fids = samples['fid'].unique()
-
         corpus = tools.load_samples(self.data_dir + '/corpus.npz')
 
-        sid2text = self.get_id2text(corpus, 'synid', sids)
-        fid2text = self.get_id2text(corpus, 'fid', fids)
+        sid2text = self.get_id2text(corpus, 'synid', samples['synid'].unique())
+        fid2text = self.get_id2text(corpus, 'fid', samples['fid'].unique())
 
         # vals = corpus[corpus['train'] != 0]['text'].values
         # informative_terms = set([w for s in vals for w in s.split()])

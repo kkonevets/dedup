@@ -2,7 +2,8 @@ r"""
 Sample command lines:
 
 python3 preprocessing/sampling.py \
---data_dir=../data/dedup/phase1/ 
+--data_dir=../data/dedup/phase2/ \
+--for_test 
 
 """
 from absl import flags
@@ -322,8 +323,9 @@ def solr_sample(existing):
             qids, test_size=0.33, random_state=42)
         samples['train'] = samples['qid'].isin(qids_train).astype(int)
 
+    X_samples = samples.values.astype(np.float32)
     np.savez(FLAGS.data_dir + '/samples.npz',
-             samples=samples.values, columns=samples.columns)
+             samples=X_samples, columns=samples.columns)
 
 
 def main(argv):

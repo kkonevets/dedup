@@ -1,7 +1,7 @@
 r"""
 Sample command lines:
 
-python3 preprocessing/simboost.py \
+python3 simboost.py \
 --data_dir=../data/dedup/phase1/ \
 
 """
@@ -85,8 +85,8 @@ def build_ranker():
 
     params = {
         'objective': 'rank:ndcg',
-        'eta': 0.1,
         'max_depth': 10,
+        'eta': 0.1,
         'gamma': 1.0,
         'min_child_weight': 0.1,
         'eval_metric': ['ndcg@1', 'ndcg@2', 'map@2']
@@ -121,25 +121,25 @@ def build_classifier():
     # X_vali = sparse.hstack([X_vali, rank_vali])
     # X_test = sparse.hstack([X_test, rank_test])
 
+    y_train = dtrain.get_label()
+
     params = {
         'objective': 'binary:logistic',
         'max_depth': 10,  # 10 best
-        'learning_rate': 0.1,  # !!!!!!!!!!!!!!!
-        'eval_metric': ['logloss']
-        #   'min_child_weight': 1,
-        #   'gamma': 3,
-        #   'subsample': 0.8,
-        #   'colsample_bytree': 0.8,
-        #   'reg_alpha': 5
+        'eval_metric': ['logloss'],
+        'eta': 0.1,
+        'gamma': 1.0,
+        'min_child_weight': 0.1,
+        # 'scale_pos_weight': (y_train == 0).sum()/y_train.sum()
     }
 
     xgb_clr = xgb.train(params, dtrain,
-                        num_boost_round=1000,
+                        num_boost_round=5000,
                         early_stopping_rounds=20,
                         evals=[(dvali, 'vali')])
 
     _ = clr_predict(xgb_clr, dtrain)
-    y_pred = clr_predict(xgb_clr, dtest)
+    y_pred = clr_predict(xgb_clr, dtest, threshold=0.5)
     cm = confusion_matrix(dtest.get_label(), y_pred)
     print(cm)
 
@@ -157,15 +157,15 @@ def test():
     clr_predict(xgb_clr, dtest, threshold=0.5)
 
 
-def main():
-    build_ranker()
+def main(argv):
+    # build_ranker()
     build_classifier()
 
 
 if __name__ == "__main__":
     flags.mark_flag_as_required("data_dir")
 
-    if True:
+    if False:
         sys.argv += ['--data_dir=../data/dedup/phase1/']
         FLAGS(sys.argv)
     else:

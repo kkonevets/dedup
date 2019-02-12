@@ -2,8 +2,7 @@ r"""
 Sample command lines:
 
 python3 preprocessing/corpus.py \
---data_dir=../data/dedup/phase1 \
---build_tfidf
+--data_dir=../data/dedup/phase2 \
 """
 
 from absl import flags
@@ -123,7 +122,7 @@ if __name__ == '__main__':
     flags.mark_flag_as_required("data_dir")
 
     if False:
-        sys.argv += ['--data_dir=../data/dedup/phase1', '--build_tfidf']
+        sys.argv += ['--data_dir=../data/dedup/phase2', ]
         FLAGS(sys.argv)
     else:
         app.run(main)
