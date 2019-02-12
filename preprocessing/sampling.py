@@ -2,8 +2,10 @@ r"""
 Sample command lines:
 
 python3 preprocessing/sampling.py \
---data_dir=../data/dedup/phase2/ \
---for_test 
+--data_dir=../data/dedup/phase1/ \
+--nrows=20 \
+--nchoices=20 
+
 
 """
 from absl import flags

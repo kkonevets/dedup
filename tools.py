@@ -20,7 +20,7 @@ from pymongo import MongoClient
 # from tokenizer import tokenize
 
 c_HOST = '10.70.6.154'
-ml_HOST = '10.72.100.255'
+ml_HOST = '10.72.102.67'
 
 chars = string.punctuation
 chars = chars.replace('%', '').replace('_', '').replace('@', '')
