@@ -194,7 +194,8 @@ def sample_one(found, et, synid, prior):
             values[0] = target.iloc[0].values.tolist()
         else:
             # target is not in the TOP
-            values[0] = [et['id'], synid, et['srcId'], 0, 1, -1]
+            # values[0] = [et['id'], synid, et['srcId'], 0, 1, -1]
+            return []
 
     return values
 
@@ -320,9 +321,8 @@ def solr_sample(existing):
     samples.columns = columns
 
     if not FLAGS.for_test:
-        qids = samples['qid'].unique()
         qids_train, qids_test = train_test_split(
-            qids, test_size=0.33, random_state=42)
+            samples['qid'].unique(), test_size=0.25, random_state=42)
         samples['train'] = samples['qid'].isin(qids_train).astype(int)
 
     X_samples = samples.values.astype(np.float32)

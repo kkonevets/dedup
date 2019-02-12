@@ -180,7 +180,7 @@ def sim_worker(tup):
 def get_similarity_features(data_gen, colnames, output_file):
     columns = []
     vals = []
-    with mp.Pool(mp.cpu_count(), maxtasksperchild=10000) as p:
+    with mp.Pool(mp.cpu_count(), maxtasksperchild=30000) as p:
         for values, columns in p.imap_unordered(sim_worker, data_gen):
             vals.append(values)
 

@@ -2,7 +2,8 @@ r"""
 Sample command lines:
 
 python3 preprocessing/corpus.py \
---data_dir=../data/dedup/phase2 \
+--data_dir=../data/dedup/phase1 \
+--build_tfidf
 """
 
 from absl import flags

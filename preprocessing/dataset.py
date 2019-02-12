@@ -2,8 +2,9 @@ r"""
 Sample command lines:
 
 python3 preprocessing/dataset.py \
---data_dir=../data/dedup/phase2/ \
+--data_dir=../data/dedup/phase1/ \
 --build_features \
+--build_tfidf \
 --tfidf
 
 """
