@@ -116,7 +116,7 @@ def build_ranker():
 
     params = {
         'objective': 'rank:ndcg',
-        'max_depth': 6,
+        'max_depth': 15,
         'eta': 0.1,
         'gamma': 1.0,
         'min_child_weight': 0.1,
@@ -156,12 +156,12 @@ def build_classifier():
 
     params = {
         'objective': 'binary:logistic',
-        'max_depth': 10,  # 10 best
+        'max_depth': 8,  # 10 best
         'eval_metric': ['logloss'],
         'eta': 0.1,
         'gamma': 1.0,
         'min_child_weight': 0.1,
-        # 'scale_pos_weight': (y_train == 0).sum()/y_train.sum()
+        'scale_pos_weight': (y_train == 0).sum()/y_train.sum()
     }
 
     xgb_clr = xgb.train(params, dtrain,
