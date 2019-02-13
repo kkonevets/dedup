@@ -36,7 +36,7 @@ FLAGS = flags.FLAGS
 matplotlib.use('agg')
 
 
-def plot_precision_recall(y_true, probas_pred):
+def plot_precision_recall(y_true, probas_pred, tag=''):
     import matplotlib.pyplot as plt
 
     average_precision = average_precision_score(y_true, probas_pred)
@@ -57,14 +57,13 @@ def plot_precision_recall(y_true, probas_pred):
     ax.set_xlim([0.0, 1])
     ax.set_title('Precision-Recall curve: AP={0:0.2f}'.format(
         average_precision))
-    fig.savefig(FLAGS.data_dir + '/prec_recal.pdf', dpi=400)
+    fig.savefig(FLAGS.data_dir + '/prec_recal%s.pdf' % tag, dpi=400)
 
 
-def ranker_predict(model, dmatrix, groups):
-    ranks = model.predict(dmatrix)
+def ranker_predict(ranks, dmatrix, groups):
     y = dmatrix.get_label()
     ix_prev = 0
-    scores = {i: [] for i in range(1, 7)}
+    scores = {i: [] for i in [1, 2, 5, 6, 7, 10]}
     for gcount in tools.tqdm(groups):
         y_cur = y[ix_prev: ix_prev + gcount]
         r = ranks[ix_prev: ix_prev + gcount]
@@ -80,11 +79,11 @@ def ranker_predict(model, dmatrix, groups):
     return scores
 
 
-def clr_predict(model, dmtx, threshold=0.4):
+def clr_predict(model, dmtx, threshold=0.4, tag=''):
     y = dmtx.get_label()
     c = Counter(y)
     probs = model.predict(dmtx)
-    plot_precision_recall(y, probs)
+    plot_precision_recall(y, probs, tag)
     y_pred = (probs >= threshold).astype(int)
     rep = classification_report(y, y_pred, labels=[1], output_dict=True)
     rep = rep['1']
@@ -116,7 +115,7 @@ def build_ranker():
 
     params = {
         'objective': 'rank:ndcg',
-        'max_depth': 15,
+        'max_depth': 10,
         'eta': 0.1,
         'gamma': 1.0,
         'min_child_weight': 0.1,
@@ -127,15 +126,12 @@ def build_ranker():
                            early_stopping_rounds=20,
                            evals=[(dvali, 'vali')])
 
-    tools.pprint(ranker_predict(xgb_ranker, dtest, group_test))
+    ranks = xgb_ranker.predict(dtest)
+    tools.pprint(ranker_predict(ranks, dtest, group_test))
     # print(xgb_ranker.eval(dvali))
 
     joblib.dump(xgb_ranker, FLAGS.data_dir + '/xgb_ranker.model')
-
-    # np.savez('../data/dedup/ranks.npz',
-    #          train=xgb_ranker.predict(dtrain),
-    #          vali=xgb_ranker.predict(dvali),
-    #          test=xgb_ranker.predict(dtest))
+    xgb_ranker = joblib.load('../data/dedup/xgb_ranker.model')
 
 
 def build_classifier():
@@ -143,38 +139,42 @@ def build_classifier():
     dvali = xgb.DMatrix(FLAGS.data_dir + 'vali_letor.txt')
     dtest = xgb.DMatrix(FLAGS.data_dir + 'test_letor.txt')
 
-    # ranks = np.load('../data/dedup/ranks.npz')
-    # rank_train = np.reshape(ranks['train'], (-1, 1))
-    # rank_vali = np.reshape(ranks['vali'], (-1, 1))
-    # rank_test = np.reshape(ranks['test'], (-1, 1))
-
-    # X_train = sparse.hstack([X_train, rank_train])
-    # X_vali = sparse.hstack([X_vali, rank_vali])
-    # X_test = sparse.hstack([X_test, rank_test])
-
-    y_train = dtrain.get_label()
-
     params = {
         'objective': 'binary:logistic',
-        'max_depth': 8,  # 10 best
+        'max_depth': 10,  # 10 best
         'eval_metric': ['logloss'],
         'eta': 0.1,
         'gamma': 1.0,
-        'min_child_weight': 0.1,
-        'scale_pos_weight': (y_train == 0).sum()/y_train.sum()
+        'min_child_weight': 0.1
     }
 
     xgb_clr = xgb.train(params, dtrain,
-                        num_boost_round=5000,
-                        early_stopping_rounds=20,
+                        num_boost_round=1000,
+                        early_stopping_rounds=10,
                         evals=[(dvali, 'vali')])
 
     _ = clr_predict(xgb_clr, dtrain)
-    y_pred = clr_predict(xgb_clr, dtest, threshold=0.95)
+    y_pred = clr_predict(xgb_clr, dtest, threshold=0.8, tag='10_g10_m01')
     cm = confusion_matrix(dtest.get_label(), y_pred)
     print(cm)
 
     joblib.dump(xgb_clr, FLAGS.data_dir + '/xgb_clr.model')
+    xgb_clr = joblib.load('../data/dedup/xgb_clr.model')
+
+    ixs = pd.read_csv('../data/dedup/test_letor.ix', header=None, sep='\t')
+    ixs.columns = ['qid', 'synid', 'fid', 'target']
+    ixs['prob'] = xgb_clr.predict(dtest)
+    ixs['pred'] = (ixs['prob'] > 0.8).astype(int)
+
+    1
+
+    # for max_depth in [3, 5, 8, 10, 15]:
+    #     params['max_depth'] = max_depth
+    #     xgb_clr = xgb.train(params, dtrain,
+    #                         num_boost_round=1000,
+    #                         early_stopping_rounds=10,
+    #                         evals=[(dvali, 'vali')])
+    #     y_pred = clr_predict(xgb_clr, dtest, threshold=0.5, tag=str(max_depth))
 
 
 def test():

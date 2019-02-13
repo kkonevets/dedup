@@ -49,11 +49,12 @@ class Letor:
     def letor_producer(X, ixs):
         _id = 0
         qid_prev, synid_prev = None, None
-        for (qid, synid, fid, target), row in tools.tqdm(zip(ixs, X), total=len(X)):
+        for ids, row in tools.tqdm(zip(ixs, X), total=len(X)):
+            qid, synid, fid, target = ids
             if (qid_prev, synid_prev) != (qid, synid):
                 _id += 1
             qid_prev, synid_prev = qid, synid
-            yield target, _id, row, ' # (%d,%d,%d)' % (qid, synid, fid)
+            yield target, _id, row, ids
 
     def save_txt(self):
         X_train, ixs_train, X_vali, ixs_vali, X_test, ixs_test = self._split()
@@ -67,15 +68,17 @@ class Letor:
     @staticmethod
     def to_txt(X, ixs, fname):
         gfile = fname.rstrip('txt') + 'group'
-        with open(fname, 'w') as f, open(gfile, 'w') as g:
+        ixfile = fname.rstrip('txt') + 'ix'
+        with open(fname, 'w') as f, open(gfile, 'w') as g, open(ixfile, 'w') as ixf:
             gcount = 0
             prev_id = None
-            for target, _id, row, comment in Letor.letor_producer(X, ixs):
+            for target, _id, row, ids in Letor.letor_producer(X, ixs):
                 s = '%d qid:%d' % (target, _id)
                 _sft = ' '.join(['%d:%f' % (i + 1, v)
                                  for i, v in enumerate(row)])
-                s = ' '.join([s, _sft, comment, '\n'])
+                s = ' '.join([s, _sft, '\n'])
                 f.write(s)
+                ixf.write('\t'.join(['%d' % i for i in ids])+'\n')
 
                 if prev_id is None:
                     prev_id = _id
@@ -92,7 +95,7 @@ class Letor:
         X = X.astype(np.float32)
         writer = tf.python_io.TFRecordWriter(filename)
         _id_prev = None
-        for target, _id, row, comment in Letor.letor_producer(X, ixs):
+        for target, _id, row, ids in Letor.letor_producer(X, ixs):
             # Create a feature
             feature = {
                 'qid': tfrec._int32_feature(int(_id)),
