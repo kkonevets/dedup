@@ -25,6 +25,7 @@ from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.model_selection import GridSearchCV
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import precision_recall_curve
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import average_precision_score
 import matplotlib
 from sklearn.utils.fixes import signature
@@ -135,9 +136,31 @@ def build_ranker():
 
 
 def build_classifier():
-    dtrain = xgb.DMatrix(FLAGS.data_dir + 'train_letor.txt')
-    dvali = xgb.DMatrix(FLAGS.data_dir + 'vali_letor.txt')
-    dtest = xgb.DMatrix(FLAGS.data_dir + 'test_letor.txt')
+    X_train, y_train = load_svmlight_file(FLAGS.data_dir + 'train_letor.txt')
+    X_vali, y_vali = load_svmlight_file(FLAGS.data_dir + 'vali_letor.txt')
+    X_test, y_test = load_svmlight_file(FLAGS.data_dir + 'test_letor.txt')
+
+    notfound = tools.load_samples('../data/dedup/notfound.npz')
+
+    size = len(X_test)/(len(X_train)+len(X_vali)+len(X_test))
+    X_nf_part, X_nf_test = train_test_split(
+        notfound, test_size=size, random_state=42)
+
+    size = len(X_vali)/(len(X_train)+len(X_vali))
+    X_nf_train, X_nf_vali = train_test_split(
+        X_nf_part, test_size=size, random_state=42)
+
+    X_train = np.vstack([X_train, X_nf_train])
+    X_vali = np.vstack([X_vali, X_nf_vali])
+    X_test = np.vstack([X_test, X_nf_test])
+
+    y_train = np.hstack([y_train, np.zeros(X_nf_train.shape[0])])
+    y_vali = np.hstack([y_vali, np.zeros(X_nf_vali.shape[0])])
+    y_test = np.hstack([y_test, np.zeros(X_nf_test.shape[0])])
+
+    dtrain = DMatrix(X_train, label=y_train)
+    dvali = DMatrix(X_vali, label=y_vali)
+    dtest = DMatrix(X_test, label=y_test)
 
     params = {
         'objective': 'binary:logistic',
