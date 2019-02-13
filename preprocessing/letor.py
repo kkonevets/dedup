@@ -54,7 +54,7 @@ class Letor:
             if (qid_prev, synid_prev) != (qid, synid):
                 _id += 1
             qid_prev, synid_prev = qid, synid
-            yield target, _id, row
+            yield target, _id, row, '# $s' % str((qid, synid))
 
     def save_txt(self):
         X_train, qst_train, X_vali, qst_vali, X_test, qst_test = self._split()
@@ -71,11 +71,11 @@ class Letor:
         with open(fname, 'w') as f, open(gfile, 'w') as g:
             gcount = 0
             prev_id = None
-            for target, _id, row in Letor.letor_producer(X, qst):
+            for target, _id, row, comment in Letor.letor_producer(X, qst):
                 s = '%d qid:%d' % (target, _id)
                 _sft = ' '.join(['%d:%f' % (i + 1, v)
                                  for i, v in enumerate(row)])
-                s = ' '.join([s, _sft, '\n'])
+                s = ' '.join([s, _sft, '\n']) + comment
                 f.write(s)
 
                 if prev_id is None:
@@ -93,7 +93,7 @@ class Letor:
         X = X.astype(np.float32)
         writer = tf.python_io.TFRecordWriter(filename)
         _id_prev = None
-        for target, _id, row in Letor.letor_producer(X, qst):
+        for target, _id, row, comment in Letor.letor_producer(X, qst):
             # Create a feature
             feature = {
                 'qid': tfrec._int32_feature(int(_id)),

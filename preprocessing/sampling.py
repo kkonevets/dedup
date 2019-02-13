@@ -2,7 +2,7 @@ r"""
 Sample command lines:
 
 python3 preprocessing/sampling.py \
---data_dir=../data/dedup/phase1/ \
+--data_dir=../data/dedup \
 --nrows=20 \
 --nchoices=20 
 
@@ -194,8 +194,7 @@ def sample_one(found, et, synid, prior):
             values[0] = target.iloc[0].values.tolist()
         else:
             # target is not in the TOP
-            # values[0] = [et['id'], synid, et['srcId'], 0, 1, -1]
-            return []
+            values[0] = [et['id'], synid, et['srcId'], 0, 1, -1]
 
     return values
 
@@ -320,6 +319,17 @@ def solr_sample(existing):
     columns = ['qid', 'synid', 'fid', 'score', 'target', 'ix']  # , 'train'
     samples.columns = columns
 
+    synids_exclude = set(samples[samples['ix'] == -1]['synid'].unique())
+    cond = samples['synid'].isin(synids_exclude)
+
+    # saeve not found queries for separate testing
+    notfound = samples[cond].values.astype(np.float32)
+    np.savez(FLAGS.data_dir + '/notfound.npz',
+             samples=notfound, columns=samples.columns)
+
+    # can't train models without target label
+    samples = samples[~cond]
+
     if not FLAGS.for_test:
         qids_train, qids_test = train_test_split(
             samples['qid'].unique(), test_size=0.2, random_state=42)
@@ -339,7 +349,7 @@ def main(argv):
     existing = get_existing(anew=False)
 
     if FLAGS.for_test:
-        samples = tools.load_samples('../data/dedup/phase1/samples.npz')
+        samples = tools.load_samples('../data/dedup/samples.npz')
         qids = set(samples[samples['train'] == 0]['qid'].unique())
         filtered = [el for el in existing if el['_id'] in qids]
         solr_sample(filtered)
@@ -351,7 +361,7 @@ if __name__ == '__main__':
     flags.mark_flag_as_required("data_dir")
 
     if False:
-        sys.argv += ['--data_dir=../data/dedup/phase1']
+        sys.argv += ['--data_dir=../data/dedup/']
         FLAGS(sys.argv)
     else:
         app.run(main)

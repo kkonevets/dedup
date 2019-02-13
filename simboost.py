@@ -2,7 +2,7 @@ r"""
 Sample command lines:
 
 python3 simboost.py \
---data_dir=../data/dedup/phase1/ \
+--data_dir=../data/dedup/ \
 
 """
 
@@ -178,11 +178,11 @@ def build_classifier():
 
 
 def test():
-    dtest = xgb.DMatrix('../data/dedup/phase2/test_letor.txt')
-    group_test = get_groups('../data/dedup/phase2/test_letor.group')
+    dtest = xgb.DMatrix('../data/dedup/test_letor.txt')
+    group_test = get_groups('../data/dedup/test_letor.group')
 
-    xgb_ranker = joblib.load('../data/dedup/phase1/xgb_ranker.model')
-    xgb_clr = joblib.load('../data/dedup/phase1/xgb_clr.model')
+    xgb_ranker = joblib.load('../data/dedup/xgb_ranker.model')
+    xgb_clr = joblib.load('../data/dedup/xgb_clr.model')
 
     ranker_predict(xgb_ranker, dtest, group_test)
     clr_predict(xgb_clr, dtest, threshold=0.5)
@@ -197,7 +197,7 @@ if __name__ == "__main__":
     flags.mark_flag_as_required("data_dir")
 
     if True:
-        sys.argv += ['--data_dir=../data/dedup/phase1/']
+        sys.argv += ['--data_dir=../data/dedup/']
         FLAGS(sys.argv)
     else:
         app.run(main)

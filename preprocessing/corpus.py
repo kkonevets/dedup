@@ -2,7 +2,7 @@ r"""
 Sample command lines:
 
 python3 preprocessing/corpus.py \
---data_dir=../data/dedup/phase1 \
+--data_dir=../data/dedup \
 --build_tfidf
 """
 
@@ -123,7 +123,7 @@ if __name__ == '__main__':
     flags.mark_flag_as_required("data_dir")
 
     if False:
-        sys.argv += ['--data_dir=../data/dedup/phase2', ]
+        sys.argv += ['--data_dir=../data/dedup', ]
         FLAGS(sys.argv)
     else:
         app.run(main)

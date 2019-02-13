@@ -2,7 +2,7 @@ r"""
 Sample command lines:
 
 python3 preprocessing/dataset.py \
---data_dir=../data/dedup/phase1/ \
+--data_dir=../data/dedup \
 --build_features \
 --build_tfidf \
 --tfidf
@@ -89,7 +89,8 @@ def compute_tfidf_dists(train_gen, test_gen):
 
 
 def compute_fasttext_dists(train_gen_raw, test_gen_raw):
-    model = FastText.load_fasttext_format(FLAGS.data_dir + '/cc.ru.300.bin')
+    model = FastText.load_fasttext_format(
+        FLAGS.data_dir + '../vectors/cc.ru.300.bin')
     # model.wv.most_similar('ватт')
 
     def get_dists(data, fname):
@@ -179,7 +180,7 @@ if __name__ == '__main__':
     flags.mark_flag_as_required("data_dir")
 
     if False:
-        sys.argv += ['--data_dir=../data/dedup/phase2',
+        sys.argv += ['--data_dir=../data/dedup',
                      '--build_features', '--build_tfidf', '--tfidf']
         FLAGS(sys.argv)
     else:
