@@ -33,6 +33,8 @@ from preprocessing.letor import Letor
 from preprocessing.letor import INFO_COLUMNS
 import preprocessing.tfrecord as tfrec
 
+FLAGS = flags.FLAGS
+# tools.del_all_flags(FLAGS)
 
 flags.DEFINE_string("data_dir", None, "path to data directory")
 flags.DEFINE_bool("build_features", False, "build column features")
@@ -42,9 +44,6 @@ flags.DEFINE_bool("tfidf", False, "use tfidf features")
 flags.DEFINE_bool("fasttext", False, "use fasttext features")
 flags.DEFINE_bool("build_tfrecord", False,
                   "build tensorflow record input files")
-
-FLAGS = flags.FLAGS
-tools.del_all_flags(FLAGS)
 
 COLNAMES = INFO_COLUMNS + ['score', 'ix']
 
@@ -168,9 +167,9 @@ def main(argv):
         to_example(test_gen, FLAGS.data_dir + '/test.tfrecord')
     if FLAGS.build_features:
         train_gen, test_gen = prod.gen_pairs()
-        test_sim_ftrs = textsim.get_similarity_features(
+        textsim.get_similarity_features(
             test_gen, COLNAMES, FLAGS.data_dir + '/test_sim_ftrs.npz')
-        train_sim_ftrs = textsim.get_similarity_features(
+        textsim.get_similarity_features(
             train_gen, COLNAMES, FLAGS.data_dir + '/train_sim_ftrs.npz')
 
     train_sim_ftrs, test_sim_ftrs = load_sim_ftrs()

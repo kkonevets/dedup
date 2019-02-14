@@ -19,6 +19,9 @@ import sys
 from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 
+FLAGS = flags.FLAGS
+# tools.del_all_flags(FLAGS)
+
 flags.DEFINE_string("data_dir", None, "data directory")
 flags.DEFINE_bool("notranslit", False,
                   "don't transliterate english to cyrillic")
@@ -26,9 +29,6 @@ flags.DEFINE_bool("build_tfidf", False, "build tfidf model")
 flags.DEFINE_string("mongo_host", tools.c_HOST, "MongoDb host")
 flags.DEFINE_string("feed_db", '1cfreshv4', "feed mongodb database name")
 flags.DEFINE_string("release_db", 'release', "master mongodb database name")
-
-FLAGS = flags.FLAGS
-tools.del_all_flags(FLAGS)
 
 
 def get_stop_words():

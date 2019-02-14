@@ -13,11 +13,23 @@ class Letor:
     def __init__(self, data_dir, train_ftrs, test_ftrs):
         self.data_dir = data_dir
         self.test_only = train_ftrs is None
-        self.train_ftrs = train_ftrs
-        self.test_ftrs = test_ftrs
+        self.train_ftrs = Letor._exclude_not_found(train_ftrs)
+        self.test_ftrs = Letor._exclude_not_found(test_ftrs)
         self.std_scaler_path = '../data/dedup/standard_scaler.pkl'
         self.value_cols = [c for c in test_ftrs.columns
                            if c not in INFO_COLUMNS]
+
+    @staticmethod
+    def _exclude_not_found(ftrs):
+        """
+        ############ RANKER: exclude groups with ix == -1 ###############
+        Exclude whole groups from ranking because they don't have positive target
+        """
+        if ftrs is None:
+            return None
+        exclude = ftrs[ftrs['ix'] == -1]['synid'].unique()
+        cond = ftrs['synid'].isin(exclude)
+        return ftrs[~cond]
 
     def _split(self):
         if self.test_only:

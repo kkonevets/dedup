@@ -152,13 +152,15 @@ def build_ranker():
     db = client['cache']
     test_qids = ixs_test['qid'].unique().tolist()
     positions_solr = db['solr_positions'].find(
-        {'et_id': {'$in': test_qids}}, projection=['i'])
-    positions_solr = pd.Series(
-        [p['i'] for p in positions_solr if p['i'] < max(group_test)])
-    positions_solr = positions_solr[~positions_solr.isin([-1, -2])]
+        {'et_id': {'$in': test_qids}, 'i': {'$lte': max(group_test)-1}}, projection=['i'])
+    positions_solr = pd.Series([p['i'] for p in positions_solr])
+    solr_top_total = len(positions_solr)
+    positions_solr = positions_solr[positions_solr >= 0]
+    scale = len(positions_solr)/solr_top_total
 
     plot_topn_curves([positions, positions_solr],
-                     '../data/dedup/cumsum_test.pdf', labels=['reranking', 'SOLR'])
+                     '../data/dedup/cumsum_test.pdf', scale=scale,
+                     labels=['reranking', 'SOLR'], title='Test: found in top N')
 
 
 def build_classifier():

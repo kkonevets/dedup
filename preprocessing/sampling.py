@@ -30,6 +30,10 @@ import json
 import tools
 import sys
 
+FLAGS = flags.FLAGS
+# tools.del_all_flags(FLAGS)
+
+
 flags.DEFINE_string("data_dir", None, "data directory path")
 flags.DEFINE_integer("nrows", 100, "The TOP number of rows to query")
 flags.DEFINE_integer("nchoices", 5, "The number of rows to sample from nrows")
@@ -39,9 +43,6 @@ flags.DEFINE_string("mongo_host", tools.c_HOST, "MongoDb host")
 flags.DEFINE_string("solr_host", tools.ml_HOST, "SOLR host")
 flags.DEFINE_string("feed_db", '1cfreshv4', "feed mongodb database name")
 flags.DEFINE_string("release_db", 'release', "master mongodb database name")
-
-FLAGS = flags.FLAGS
-tools.del_all_flags(FLAGS)
 
 matplotlib.use('agg')
 
@@ -84,7 +85,7 @@ def query_solr(text, rows=1):
     return docs
 
 
-def plot_topn_curves(positions_list, fname, labels=None):
+def plot_topn_curves(positions_list, fname, scale=1, labels=None, title=None):
     if labels is not None:
         assert len(positions_list) == len(labels)
     else:
@@ -111,11 +112,14 @@ def plot_topn_curves(positions_list, fname, labels=None):
     for cumsum, label in zip(csums, labels):
         df[label] = cumsum
 
-    ax = df.plot(title='found in top N', grid=True)
-    xtics = list(df.index)[::2]
-    if xtics[-1] != df.index[-1]:
-        xtics.append(df.index[-1])
-    ax.set_xticks(xtics)
+    df *= scale
+
+    title = title if title else 'found in top N'
+    ax = df.plot(title=title, grid=True)
+    # xtics = list(df.index)[::2]
+    # if xtics[-1] != df.index[-1]:
+    #     xtics.append(df.index[-1])
+    ax.set_xticks(df.index)
     fig = ax.get_figure()
     ax.set_xlabel("top N")
     ax.set_ylabel("recall")
@@ -342,20 +346,20 @@ def solr_sample(existing):
     columns = ['qid', 'synid', 'fid', 'score', 'target', 'ix']  # , 'train'
     samples.columns = columns
 
-    synids_exclude = set(samples[samples['ix'] == -1]['synid'].unique())
-    cond = samples['synid'].isin(synids_exclude)
+    # synids_exclude = set(samples[samples['ix'] == -1]['synid'].unique())
+    # cond = samples['synid'].isin(synids_exclude)
 
-    # saeve not found queries for separate testing
-    notfound = samples[cond].values.astype(np.float32)
-    np.savez(FLAGS.data_dir + '/notfound.npz',
-             samples=notfound, columns=samples.columns)
+    # # saeve not found queries for separate testing
+    # notfound = samples[cond].values.astype(np.float32)
+    # np.savez(FLAGS.data_dir + '/notfound.npz',
+    #          samples=notfound, columns=samples.columns)
 
-    # can't train models without target label
-    samples = samples[~cond]
+    # # can't train models without target label
+    # samples = samples[~cond]
 
     if not FLAGS.for_test:
         qids_train, qids_test = train_test_split(
-            samples['qid'].unique(), test_size=0.2, random_state=42)
+            samples['qid'].unique(), test_size=0.2, random_state=11)
         samples['train'] = samples['qid'].isin(qids_train).astype(int)
 
     X_samples = samples.values.astype(np.float32)
@@ -383,7 +387,7 @@ def main(argv):
 if __name__ == '__main__':
     flags.mark_flag_as_required("data_dir")
 
-    if True:
+    if False:
         sys.argv += ['--data_dir=../data/dedup/']
         FLAGS(sys.argv)
     else:

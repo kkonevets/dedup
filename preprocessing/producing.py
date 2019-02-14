@@ -45,9 +45,9 @@ class Producer:
     def load_data(self):
         samples = tools.load_samples(self.data_dir + '/samples.npz')
 
-        # exclude samples not found in TOP
-        synids_exclude = set(samples[samples['ix'] == -1]['synid'].unique())
-        samples = samples[~samples['synid'].isin(synids_exclude)]
+        # # exclude samples not found in TOP
+        # synids_exclude = set(samples[samples['ix'] == -1]['synid'].unique())
+        # samples = samples[~samples['synid'].isin(synids_exclude)]
 
         corpus = tools.load_samples(self.data_dir + '/corpus.npz')
 
