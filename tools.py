@@ -25,23 +25,23 @@ ml_HOST = '10.72.102.67'
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string("data_dir", None, "data directory")
+flags.DEFINE_string("feed_db", '1cfreshv4', "feed mongodb database name")
+flags.DEFINE_string("release_db", 'release', "master mongodb database name")
+flags.DEFINE_string("mongo_host", c_HOST, "MongoDb host")
+flags.DEFINE_string("solr_host", ml_HOST, "SOLR host")
 flags.DEFINE_bool("notranslit", False,
                   "don't transliterate english to cyrillic")
 flags.DEFINE_bool("build_tfidf", False, "build tfidf model")
-flags.DEFINE_string("feed_db", '1cfreshv4', "feed mongodb database name")
-flags.DEFINE_string("release_db", 'release', "master mongodb database name")
 flags.DEFINE_bool("tfidf", False, "use tfidf features")
 flags.DEFINE_bool("fasttext", False, "use fasttext features")
-flags.DEFINE_integer("nrows", 100, "The TOP number of rows to query")
-flags.DEFINE_integer("nchoices", 5, "The number of rows to sample from nrows")
 flags.DEFINE_bool("for_test", False, "sample just for test")
 flags.DEFINE_bool("no_prior", False, "sample just for test")
-flags.DEFINE_string("mongo_host", c_HOST, "MongoDb host")
-flags.DEFINE_string("solr_host", ml_HOST, "SOLR host")
 flags.DEFINE_bool("build_features", False, "build column features")
 flags.DEFINE_bool("build_fasttext", False, "build fasttext features")
 flags.DEFINE_bool("build_tfrecord", False,
                   "build tensorflow record input files")
+flags.DEFINE_integer("nrows", 100, "The TOP number of rows to query")
+flags.DEFINE_integer("nchoices", 5, "The number of rows to sample from nrows")
 
 
 # from tokenizer import tokenize

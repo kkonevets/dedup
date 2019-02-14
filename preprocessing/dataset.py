@@ -59,7 +59,7 @@ def to_example(data, filename):
 
 
 def compute_tfidf_dists(train_gen, test_gen):
-    tfidf_model = tools.do_unpickle('../data/dedup/tfidf_model.pkl')
+    model = tools.do_unpickle('../data/dedup/tfidf_model.pkl')
 
     def get_dists(data, fname):
         qs, ds, ixs = [], [], []
@@ -69,8 +69,8 @@ def compute_tfidf_dists(train_gen, test_gen):
             ixs.append(_ixs[:3])
         if len(qs) == 0:
             return
-        qvecs = tfidf_model.transform(qs)
-        dvecs = tfidf_model.transform(ds)
+        qvecs = model.transform(qs)
+        dvecs = model.transform(ds)
 
         dists = paired_cosine_distances(qvecs, dvecs)
         np.savez(fname, dists=np.hstack([ixs, np.array([dists]).T]))
@@ -170,7 +170,7 @@ def main(argv):
 if __name__ == '__main__':
     flags.mark_flag_as_required("data_dir")
 
-    if True:
+    if False:
         sys.argv += ['--data_dir=../data/dedup',
                      '--build_features', '--build_tfidf', '--tfidf']
         FLAGS(sys.argv)

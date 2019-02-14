@@ -3,6 +3,7 @@ Sample command lines:
 
 python3 simboost.py \
 --data_dir=../data/dedup/ \
+--tfidf
 
 """
 
@@ -68,7 +69,7 @@ def build_ranker():
     # print(xgb_ranker.eval(dvali))
 
     joblib.dump(xgb_ranker, FLAGS.data_dir + '/xgb_ranker.model')
-    xgb_ranker = joblib.load('../data/dedup/xgb_ranker.model')
+    # xgb_ranker = joblib.load('../data/dedup/xgb_ranker.model')
 
     itest = pd.read_csv('../data/dedup/test_letor.ix',
                         header=None, sep='\t')
@@ -125,22 +126,20 @@ def build_classifier():
 
     test_probs = xgb_clr.predict(dtest)
     y_pred = scoring.clr_predict(test_probs, dtest, threshold=0.5)
-    scoring.plot_precision_recall(dtest.get_label(), test_probs, tag='20x20',
+    scoring.plot_precision_recall(dtest.get_label(), test_probs, tag='5x5',
                                   recall_scale=recall_scale)
     cm = confusion_matrix(dtest.get_label(), y_pred)
     print(cm)
 
     joblib.dump(xgb_clr, FLAGS.data_dir + '/xgb_clr.model')
-    xgb_clr = joblib.load('../data/dedup/xgb_clr.model')
+    # xgb_clr = joblib.load('../data/dedup/xgb_clr.model')
 
     # analyze
-    itest = pd.read_csv('../data/dedup/test_letor.ix',
-                        header=None, sep='\t')
-    itest.columns = ['qid', 'synid', 'fid', 'target']
-    itest['prob'] = xgb_clr.predict(dtest)
-    itest['pred'] = (itest['prob'] > 0.8).astype(int)
-
-    1
+    # itest = pd.read_csv('../data/dedup/test_letor.ix',
+    #                     header=None, sep='\t')
+    # itest.columns = ['qid', 'synid', 'fid', 'target']
+    # itest['prob'] = test_probs
+    # itest['pred'] = (itest['prob'] > 0.8).astype(int)
 
     # for max_depth in [3, 5, 8, 10, 15]:
     #     params['max_depth'] = max_depth
@@ -152,14 +151,14 @@ def build_classifier():
 
 
 def main(argv):
-    # build_ranker()
+    build_ranker()
     build_classifier()
 
 
 if __name__ == "__main__":
     flags.mark_flag_as_required("data_dir")
 
-    if True:
+    if False:
         sys.argv += ['--data_dir=../data/dedup/', '--tfidf']
         FLAGS(sys.argv)
     else:

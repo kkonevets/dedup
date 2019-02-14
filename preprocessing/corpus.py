@@ -93,11 +93,11 @@ def get_tfidf(corpus, columns):
     corpus = corpus[corpus['train'] != 0]
     if len(corpus) == 0:  # test
         return
-    corpus = corpus['text'].values
+    texts = corpus['text'].values
 
     vectorizer = TfidfVectorizer(
         stop_words=get_stop_words(), token_pattern=r"(?u)\S+")
-    model = vectorizer.fit(corpus)
+    model = vectorizer.fit(texts)
     tools.do_pickle(model, '../data/dedup/tfidf_model.pkl')
 
     # sent = 'молоко пастеризованное домик в деревне'

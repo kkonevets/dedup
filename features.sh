@@ -13,3 +13,8 @@ printf "${RED}dataset\n${NC}"
 --build_features \
 --build_tfidf \
 --tfidf
+
+printf "${RED}simboost\n${NC}"
+python3 simboost.py \
+--data_dir=../data/dedup/ \
+--tfidf

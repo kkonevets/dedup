@@ -8,8 +8,8 @@ export PYTHONPATH="$PYTHONPATH:$PWD"
 printf "${RED}sampling\n${NC}"
 python3 preprocessing/sampling.py \
 --data_dir=../data/dedup/ \
---nrows=20 \
---nchoices=20 
+--nrows=10 \
+--nchoices=10 
 
 printf "${RED}corpus\n${NC}"
 python3 preprocessing/corpus.py \
