@@ -33,17 +33,7 @@ from preprocessing.letor import Letor
 from preprocessing.letor import INFO_COLUMNS
 import preprocessing.tfrecord as tfrec
 
-FLAGS = flags.FLAGS
-# tools.del_all_flags(FLAGS)
-
-flags.DEFINE_string("data_dir", None, "path to data directory")
-flags.DEFINE_bool("build_features", False, "build column features")
-flags.DEFINE_bool("build_tfidf", False, "build tfidf features")
-flags.DEFINE_bool("build_fasttext", False, "build fasttext features")
-flags.DEFINE_bool("tfidf", False, "use tfidf features")
-flags.DEFINE_bool("fasttext", False, "use fasttext features")
-flags.DEFINE_bool("build_tfrecord", False,
-                  "build tensorflow record input files")
+FLAGS = tools.FLAGS
 
 COLNAMES = INFO_COLUMNS + ['score', 'ix']
 
@@ -180,7 +170,7 @@ def main(argv):
 if __name__ == '__main__':
     flags.mark_flag_as_required("data_dir")
 
-    if False:
+    if True:
         sys.argv += ['--data_dir=../data/dedup',
                      '--build_features', '--build_tfidf', '--tfidf']
         FLAGS(sys.argv)

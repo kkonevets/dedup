@@ -20,7 +20,6 @@ import re
 import os
 import pandas as pd
 import numpy as np
-import matplotlib
 import pickle
 from urllib.parse import quote
 import multiprocessing as mp
@@ -29,22 +28,10 @@ import urllib
 import json
 import tools
 import sys
+import scoring
 
-FLAGS = flags.FLAGS
-tools.del_all_flags(FLAGS)
+FLAGS = tools.FLAGS
 
-
-flags.DEFINE_string("data_dir", None, "data directory path")
-flags.DEFINE_integer("nrows", 100, "The TOP number of rows to query")
-flags.DEFINE_integer("nchoices", 5, "The number of rows to sample from nrows")
-flags.DEFINE_bool("for_test", False, "sample just for test")
-flags.DEFINE_bool("no_prior", False, "sample just for test")
-flags.DEFINE_string("mongo_host", tools.c_HOST, "MongoDb host")
-flags.DEFINE_string("solr_host", tools.ml_HOST, "SOLR host")
-flags.DEFINE_string("feed_db", '1cfreshv4', "feed mongodb database name")
-flags.DEFINE_string("release_db", 'release', "master mongodb database name")
-
-matplotlib.use('agg')
 
 prog = re.compile("[\\W]", re.UNICODE)
 
@@ -85,47 +72,6 @@ def query_solr(text, rows=1):
     return docs
 
 
-def plot_topn_curves(positions_list, fname, scale=1, labels=None, title=None):
-    if labels is not None:
-        assert len(positions_list) == len(labels)
-    else:
-        labels = [None]*len(positions_list)
-
-    import matplotlib.pyplot as plt
-    plt.clf()
-
-    csums = []
-    for positions in positions_list:
-        rel1 = (positions.value_counts()/len(positions)).head(40)
-        print(rel1)
-
-        psex = positions[~positions.isin([-1, -2])]
-        rel2 = (psex.value_counts()/len(positions))
-        print(rel2.sum())
-        print('\n')
-
-        cumsum = rel2.sort_index().cumsum()
-        cumsum.index += 1
-        csums.append(cumsum)
-
-    df = pd.DataFrame()
-    for cumsum, label in zip(csums, labels):
-        df[label] = cumsum
-
-    df *= scale
-
-    title = title if title else 'found in top N'
-    ax = df.plot(title=title, grid=True)
-    # xtics = list(df.index)[::2]
-    # if xtics[-1] != df.index[-1]:
-    #     xtics.append(df.index[-1])
-    ax.set_xticks(df.index)
-    fig = ax.get_figure()
-    ax.set_xlabel("top N")
-    ax.set_ylabel("recall")
-    fig.savefig(fname)
-
-
 def save_positions(positions):
     columns = ['et_id', 'et_name', 'et_brand',
                'el_id', 'el_name', 'el_brand', 'i']
@@ -140,7 +86,7 @@ def save_positions(positions):
     # positions.to_excel(FLAGS.data_dir + '/solr_positions.xlsx', index=False)
 
     positions = pd.Series([p['i'] for p in positions])
-    plot_topn_curves([positions], FLAGS.data_dir + '/cumsum.pdf')
+    scoring.plot_topn_curves([positions], FLAGS.data_dir + '/cumsum.pdf')
 
 
 def get_prior(anew=True):
