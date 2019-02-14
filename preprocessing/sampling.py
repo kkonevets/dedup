@@ -31,7 +31,7 @@ import tools
 import sys
 
 FLAGS = flags.FLAGS
-# tools.del_all_flags(FLAGS)
+tools.del_all_flags(FLAGS)
 
 
 flags.DEFINE_string("data_dir", None, "data directory path")

@@ -30,6 +30,7 @@ from sklearn.metrics import average_precision_score
 import matplotlib
 from sklearn.utils.fixes import signature
 from sklearn.externals import joblib
+from preprocessing.letor import INFO_COLUMNS
 import sys
 from pymongo import MongoClient
 from preprocessing.sampling import plot_topn_curves
@@ -42,7 +43,7 @@ flags.DEFINE_string("data_dir", None, "path to data directory")
 matplotlib.use('agg')
 
 
-def plot_precision_recall(y_true, probas_pred, tag=''):
+def plot_precision_recall(y_true, probas_pred, tag='', recall_scale=1):
     import matplotlib.pyplot as plt
 
     average_precision = average_precision_score(y_true, probas_pred)
@@ -53,8 +54,8 @@ def plot_precision_recall(y_true, probas_pred, tag=''):
 
     # In matplotlib < 1.5, plt.fill_between does not have a 'step' argument
     step_kwargs = ({'step': 'post'})
-    ax.step(recall, precision, color='b', alpha=0.2, where='post')
-    ax.fill_between(recall, precision, alpha=0.2, color='b',
+    ax.step(recall*recall_scale, precision, color='b', alpha=0.2, where='post')
+    ax.fill_between(recall*recall_scale, precision, alpha=0.2, color='b',
                     rasterized=True, **step_kwargs)
 
     ax.set_xlabel('Recall')
@@ -64,6 +65,14 @@ def plot_precision_recall(y_true, probas_pred, tag=''):
     ax.set_title('Precision-Recall curve: AP={0:0.2f}'.format(
         average_precision))
     fig.savefig(FLAGS.data_dir + '/prec_recal%s.pdf' % tag, dpi=400)
+
+
+def get_recall_scale():
+    samples = tools.load_samples('../data/dedup/samples.npz')
+    ptest = samples[(samples['target'] == 1) & (samples['train'] == 0)]
+    counts = ptest['ix'].value_counts()
+    recall_scale = 1-counts[-1]/counts.sum()
+    return recall_scale
 
 
 def ranker_predict(ranks, dmatrix, groups):
@@ -89,11 +98,9 @@ def ranker_predict(ranks, dmatrix, groups):
     return scores, positions
 
 
-def clr_predict(model, dmtx, threshold=0.4, tag=''):
+def clr_predict(probs, dmtx, threshold=0.4):
     y = dmtx.get_label()
     c = Counter(y)
-    probs = model.predict(dmtx)
-    plot_precision_recall(y, probs, tag)
     y_pred = (probs >= threshold).astype(int)
     rep = classification_report(y, y_pred, labels=[1], output_dict=True)
     rep = rep['1']
@@ -123,6 +130,8 @@ def build_ranker():
     group_vali = get_groups(FLAGS.data_dir + '/vali_letor.group')
     group_test = get_groups(FLAGS.data_dir + '/test_letor.group')
 
+    recall_scale = get_recall_scale()
+
     params = {
         'objective': 'rank:ndcg',
         'max_depth': 10,
@@ -144,51 +153,44 @@ def build_ranker():
     joblib.dump(xgb_ranker, FLAGS.data_dir + '/xgb_ranker.model')
     xgb_ranker = joblib.load('../data/dedup/xgb_ranker.model')
 
-    ixs_test = pd.read_csv('../data/dedup/test_letor.ix',
-                           header=None, sep='\t')
-    ixs_test.columns = ['qid', 'synid', 'fid', 'target']
+    itest = pd.read_csv('../data/dedup/test_letor.ix',
+                        header=None, sep='\t')
+    itest.columns = ['qid', 'synid', 'fid', 'target']
 
     client = MongoClient(tools.c_HOST)
     db = client['cache']
-    test_qids = ixs_test['qid'].unique().tolist()
+    test_qids = itest['qid'].unique().tolist()
     positions_solr = db['solr_positions'].find(
         {'et_id': {'$in': test_qids}, 'i': {'$lte': max(group_test)-1}}, projection=['i'])
     positions_solr = pd.Series([p['i'] for p in positions_solr])
     solr_top_total = len(positions_solr)
     positions_solr = positions_solr[positions_solr >= 0]
-    scale = len(positions_solr)/solr_top_total
 
     plot_topn_curves([positions, positions_solr],
-                     '../data/dedup/cumsum_test.pdf', scale=scale,
+                     '../data/dedup/cumsum_test.pdf', scale=recall_scale,
                      labels=['reranking', 'SOLR'], title='Test: found in top N')
 
 
 def build_classifier():
-    X_train, y_train = load_svmlight_file(FLAGS.data_dir + 'train_letor.txt')
-    X_vali, y_vali = load_svmlight_file(FLAGS.data_dir + 'vali_letor.txt')
-    X_test, y_test = load_svmlight_file(FLAGS.data_dir + 'test_letor.txt')
+    ftrain = tools.load_samples('../data/dedup/train_sim_ftrs.npz')
+    ftest = tools.load_samples('../data/dedup/test_sim_ftrs.npz')
+    ftrain = ftrain[ftrain['ix'] != -1]
+    ftest = ftest[ftest['ix'] != -1]
 
-    notfound = tools.load_samples('../data/dedup/notfound.npz')
+    recall_scale = get_recall_scale()
 
-    size = len(X_test)/(len(X_train)+len(X_vali)+len(X_test))
-    X_nf_part, X_nf_test = train_test_split(
-        notfound, test_size=size, random_state=42)
+    qid_train, _ = train_test_split(
+        ftrain['qid'].unique(), test_size=0.1, random_state=42)
 
-    size = len(X_vali)/(len(X_train)+len(X_vali))
-    X_nf_train, X_nf_vali = train_test_split(
-        X_nf_part, test_size=size, random_state=42)
+    cond = ftrain['qid'].isin(qid_train)
+    train_part = ftrain[cond]
+    vali_part = ftrain[~cond]
 
-    X_train = np.vstack([X_train, X_nf_train])
-    X_vali = np.vstack([X_vali, X_nf_vali])
-    X_test = np.vstack([X_test, X_nf_test])
+    value_cols = [c for c in ftrain.columns if c not in INFO_COLUMNS]
 
-    y_train = np.hstack([y_train, np.zeros(X_nf_train.shape[0])])
-    y_vali = np.hstack([y_vali, np.zeros(X_nf_vali.shape[0])])
-    y_test = np.hstack([y_test, np.zeros(X_nf_test.shape[0])])
-
-    dtrain = DMatrix(X_train, label=y_train)
-    dvali = DMatrix(X_vali, label=y_vali)
-    dtest = DMatrix(X_test, label=y_test)
+    dtrain = DMatrix(train_part[value_cols], label=train_part['target'])
+    dvali = DMatrix(vali_part[value_cols], label=vali_part['target'])
+    dtest = DMatrix(ftest[value_cols], label=ftest['target'])
 
     params = {
         'objective': 'binary:logistic',
@@ -204,18 +206,24 @@ def build_classifier():
                         early_stopping_rounds=10,
                         evals=[(dvali, 'vali')])
 
-    _ = clr_predict(xgb_clr, dtrain)
-    y_pred = clr_predict(xgb_clr, dtest, threshold=0.8, tag='10_g10_m01')
+    train_probs = xgb_clr.predict(dtrain)
+    _ = clr_predict(train_probs, dtrain)
+
+    test_probs = xgb_clr.predict(dtest)
+    y_pred = clr_predict(test_probs, dtest, threshold=0.5)
+    plot_precision_recall(dtest.get_label(), test_probs, tag='20x20',
+                          recall_scale=recall_scale)
     cm = confusion_matrix(dtest.get_label(), y_pred)
     print(cm)
 
     joblib.dump(xgb_clr, FLAGS.data_dir + '/xgb_clr.model')
     xgb_clr = joblib.load('../data/dedup/xgb_clr.model')
 
-    ixs = pd.read_csv('../data/dedup/test_letor.ix', header=None, sep='\t')
-    ixs.columns = ['qid', 'synid', 'fid', 'target']
-    ixs['prob'] = xgb_clr.predict(dtest)
-    ixs['pred'] = (ixs['prob'] > 0.8).astype(int)
+    itest = pd.read_csv('../data/dedup/test_letor.ix',
+                        header=None, sep='\t')
+    itest.columns = ['qid', 'synid', 'fid', 'target']
+    itest['prob'] = xgb_clr.predict(dtest)
+    itest['pred'] = (itest['prob'] > 0.8).astype(int)
 
     1
 

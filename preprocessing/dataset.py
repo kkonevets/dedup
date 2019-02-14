@@ -132,7 +132,7 @@ def load_sim_ftrs():
     def load_one(train=True):
         tag = 'train' if train else 'test'
         filename = FLAGS.data_dir + '/%s_sim_ftrs.npz' % tag
-        sim_ftrs = tools.load_samples(filename, key='vals')
+        sim_ftrs = tools.load_samples(filename)
         if sim_ftrs is None:
             return
 

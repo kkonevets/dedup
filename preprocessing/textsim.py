@@ -192,9 +192,5 @@ def get_similarity_features(data_gen, colnames, output_file):
     features = pd.DataFrame(vals, dtype=np.float32)
     features.columns = columns
 
-    ############ CLASSIFIER: exclude lines with ix == -1 ###############
-    # BM25 score is not known for ix == -1, must be excluded for classification
-    features = features[features['ix'] != -1]
-
-    np.savez(output_file, vals=features.values, columns=columns)
+    np.savez(output_file, samples=features.values, columns=columns)
     return features
