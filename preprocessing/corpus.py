@@ -28,6 +28,7 @@ flags.DEFINE_string("feed_db", '1cfreshv4', "feed mongodb database name")
 flags.DEFINE_string("release_db", 'release', "master mongodb database name")
 
 FLAGS = flags.FLAGS
+tools.del_all_flags(FLAGS)
 
 
 def get_stop_words():

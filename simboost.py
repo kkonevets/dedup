@@ -31,8 +31,13 @@ import matplotlib
 from sklearn.utils.fixes import signature
 from sklearn.externals import joblib
 import sys
+from pymongo import MongoClient
+from preprocessing.sampling import plot_topn_curves
 
 FLAGS = flags.FLAGS
+tools.del_all_flags(FLAGS)
+
+flags.DEFINE_string("data_dir", None, "path to data directory")
 
 matplotlib.use('agg')
 
@@ -63,12 +68,15 @@ def plot_precision_recall(y_true, probas_pred, tag=''):
 
 def ranker_predict(ranks, dmatrix, groups):
     y = dmatrix.get_label()
+    positions = []
     ix_prev = 0
     scores = {i: [] for i in [1, 2, 5, 6, 7, 10]}
     for gcount in tools.tqdm(groups):
         y_cur = y[ix_prev: ix_prev + gcount]
         r = ranks[ix_prev: ix_prev + gcount]
         rsorted = y_cur[np.argsort(r)[::-1]]
+        ix = np.where(rsorted == 1)[0][0]
+        positions.append(ix)
         for k in scores.keys():
             val = tools.ndcg_at_k(rsorted, k, method=1)
             scores[k].append(val)
@@ -77,7 +85,8 @@ def ranker_predict(ranks, dmatrix, groups):
     for k in list(scores.keys()):
         scores['ndcg@%d' % k] = np.round(np.mean(scores.pop(k)), 4)
 
-    return scores
+    positions = pd.Series(positions)
+    return scores, positions
 
 
 def clr_predict(model, dmtx, threshold=0.4, tag=''):
@@ -128,11 +137,28 @@ def build_ranker():
                            evals=[(dvali, 'vali')])
 
     ranks = xgb_ranker.predict(dtest)
-    tools.pprint(ranker_predict(ranks, dtest, group_test))
+    scores, positions = ranker_predict(ranks, dtest, group_test)
+    tools.pprint(scores)
     # print(xgb_ranker.eval(dvali))
 
     joblib.dump(xgb_ranker, FLAGS.data_dir + '/xgb_ranker.model')
     xgb_ranker = joblib.load('../data/dedup/xgb_ranker.model')
+
+    ixs_test = pd.read_csv('../data/dedup/test_letor.ix',
+                           header=None, sep='\t')
+    ixs_test.columns = ['qid', 'synid', 'fid', 'target']
+
+    client = MongoClient(tools.c_HOST)
+    db = client['cache']
+    test_qids = ixs_test['qid'].unique().tolist()
+    positions_solr = db['solr_positions'].find(
+        {'et_id': {'$in': test_qids}}, projection=['i'])
+    positions_solr = pd.Series(
+        [p['i'] for p in positions_solr if p['i'] < max(group_test)])
+    positions_solr = positions_solr[~positions_solr.isin([-1, -2])]
+
+    plot_topn_curves([positions, positions_solr],
+                     '../data/dedup/cumsum_test.pdf', labels=['reranking', 'SOLR'])
 
 
 def build_classifier():

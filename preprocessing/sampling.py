@@ -41,6 +41,7 @@ flags.DEFINE_string("feed_db", '1cfreshv4', "feed mongodb database name")
 flags.DEFINE_string("release_db", 'release', "master mongodb database name")
 
 FLAGS = flags.FLAGS
+tools.del_all_flags(FLAGS)
 
 matplotlib.use('agg')
 
@@ -83,6 +84,44 @@ def query_solr(text, rows=1):
     return docs
 
 
+def plot_topn_curves(positions_list, fname, labels=None):
+    if labels is not None:
+        assert len(positions_list) == len(labels)
+    else:
+        labels = [None]*len(positions_list)
+
+    import matplotlib.pyplot as plt
+    plt.clf()
+
+    csums = []
+    for positions in positions_list:
+        rel1 = (positions.value_counts()/len(positions)).head(40)
+        print(rel1)
+
+        psex = positions[~positions.isin([-1, -2])]
+        rel2 = (psex.value_counts()/len(positions))
+        print(rel2.sum())
+        print('\n')
+
+        cumsum = rel2.sort_index().cumsum()
+        cumsum.index += 1
+        csums.append(cumsum)
+
+    df = pd.DataFrame()
+    for cumsum, label in zip(csums, labels):
+        df[label] = cumsum
+
+    ax = df.plot(title='found in top N', grid=True)
+    xtics = list(df.index)[::2]
+    if xtics[-1] != df.index[-1]:
+        xtics.append(df.index[-1])
+    ax.set_xticks(xtics)
+    fig = ax.get_figure()
+    ax.set_xlabel("top N")
+    ax.set_ylabel("recall")
+    fig.savefig(fname)
+
+
 def save_positions(positions):
     columns = ['et_id', 'et_name', 'et_brand',
                'el_id', 'el_name', 'el_brand', 'i']
@@ -96,24 +135,8 @@ def save_positions(positions):
 
     # positions.to_excel(FLAGS.data_dir + '/solr_positions.xlsx', index=False)
 
-    ps = pd.Series([p['i'] for p in positions])
-    rel1 = (ps.value_counts()/ps.shape[0]).head(40)
-    print(rel1)
-
-    psex = pd.Series([p['i'] for p in positions if p['i'] not in {-1, -2}])
-    rel2 = (psex.value_counts()/ps.shape[0])
-    print(rel2.sum())
-
-    import matplotlib.pyplot as plt
-
-    cumsum = rel2.sort_index().cumsum()
-    plt.clf()
-    ax = cumsum.plot(xlim=[0, FLAGS.nrows], ylim=[cumsum.min(), cumsum.max()],
-                     title='SOLR found in top N', grid=True)
-    fig = ax.get_figure()
-    ax.set_xlabel("top N")
-    ax.set_ylabel("recall")
-    fig.savefig(FLAGS.data_dir + '/cumsum.pdf')
+    positions = pd.Series([p['i'] for p in positions])
+    plot_topn_curves([positions], FLAGS.data_dir + '/cumsum.pdf')
 
 
 def get_prior(anew=True):
@@ -360,7 +383,7 @@ def main(argv):
 if __name__ == '__main__':
     flags.mark_flag_as_required("data_dir")
 
-    if False:
+    if True:
         sys.argv += ['--data_dir=../data/dedup/']
         FLAGS(sys.argv)
     else:

@@ -44,6 +44,8 @@ flags.DEFINE_bool("build_tfrecord", False,
                   "build tensorflow record input files")
 
 FLAGS = flags.FLAGS
+tools.del_all_flags(FLAGS)
+
 COLNAMES = INFO_COLUMNS + ['score', 'ix']
 
 

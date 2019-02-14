@@ -169,6 +169,13 @@ def do_unpickle(fname):
     return data
 
 
+def del_all_flags(FLAGS):
+    flags_dict = FLAGS._flags()
+    keys_list = [keys for keys in flags_dict]
+    for keys in keys_list:
+        FLAGS.__delattr__(keys)
+
+
 class Updater:
     def __init__(self, master):
         self.ets = []
