@@ -162,9 +162,7 @@ def build_ranker():
     test_qids = itest['qid'].unique().tolist()
     positions_solr = db['solr_positions'].find(
         {'et_id': {'$in': test_qids}, 'i': {'$lte': max(group_test)-1}}, projection=['i'])
-    positions_solr = pd.Series([p['i'] for p in positions_solr])
-    solr_top_total = len(positions_solr)
-    positions_solr = positions_solr[positions_solr >= 0]
+    positions_solr = pd.Series([p['i'] for p in positions_solr if p['i'] >= 0])
 
     plot_topn_curves([positions, positions_solr],
                      '../data/dedup/cumsum_test.pdf', scale=recall_scale,
@@ -219,6 +217,7 @@ def build_classifier():
     joblib.dump(xgb_clr, FLAGS.data_dir + '/xgb_clr.model')
     xgb_clr = joblib.load('../data/dedup/xgb_clr.model')
 
+    # analyze
     itest = pd.read_csv('../data/dedup/test_letor.ix',
                         header=None, sep='\t')
     itest.columns = ['qid', 'synid', 'fid', 'target']
