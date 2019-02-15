@@ -30,6 +30,7 @@ import json
 import tools
 import sys
 import scoring
+import traceback
 
 FLAGS = tools.FLAGS
 
@@ -70,6 +71,7 @@ def query_solr(text, rows=1):
         'q=%s&rows=%d&fl=*,score' % (FLAGS.solr_host, quoted, rows)
     r = urllib.request.urlopen(q).read()
     docs = json.loads(r)['response']['docs']
+    # print(traceback.format_exc())
     return docs
 
 
@@ -295,6 +297,12 @@ def solr_sample(elements):
                 # if len(positions) > 1000:
                 #     break
 
+    # with tqdm(total=len(elements)) as pbar:
+    #     for samps, poss in tqdm(map(wraper, do_iterate(db, elements))):
+    #         samples += samps
+    #         positions += poss
+    #         pbar.update()
+
     if FLAGS.no_prior:
         save_positions(positions)
         return
@@ -327,7 +335,7 @@ def main(argv):
         not_existing = db.etalons.find(
             {'_id': {'$nin': [el['_id'] for el in existing]}},
             projection=['_id'])
-        not_existing = [el for el in not_existing][:400]
+        not_existing = [el for el in not_existing]
         solr_sample(not_existing)
     else:
         solr_sample(existing)

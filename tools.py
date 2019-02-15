@@ -55,7 +55,7 @@ prog = re.compile("[\\W\\d]", re.UNICODE)
 float_prog = re.compile(r"[-+]?\d*\.\d+|\d+", re.UNICODE)
 dot_prog = re.compile(r'[xх*]', re.UNICODE)
 
-TransTable = str.maketrans(dict.fromkeys(r'/-\[\]()|{}:^+', ' '))
+TransTable = str.maketrans(dict.fromkeys(r'~/-\[\]()|{}:^+', ' '))
 wt = WordTokenizer()
 
 unit_lookup = {

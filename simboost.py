@@ -153,10 +153,11 @@ def test():
     dtest = DMatrix(ftest[value_cols])
     probs = xgb_clr.predict(dtest)
     samples = tools.load_samples('../data/dedup/samples.npz')
+    del samples['target']
     samples['prob'] = probs
     samples.to_excel('../data/dedup/samples_look.xlsx', index=False)
 
-    samples[samples['prob'] > 0.95]
+    samples[samples['prob'] > 0.6]
 
 
 def main(argv):
