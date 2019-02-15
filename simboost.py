@@ -56,7 +56,7 @@ def build_ranker():
         'eta': 0.1,
         'gamma': 1.0,
         'min_child_weight': 0.1,
-        'eval_metric': ['ndcg@1', 'ndcg@2', 'map@2']
+        'eval_metric': ['ndcg@2', 'map@2', 'ndcg@1']
     }
     xgb_ranker = xgb.train(params, dtrain,
                            num_boost_round=5000,
@@ -176,7 +176,7 @@ def main(argv):
 if __name__ == "__main__":
     flags.mark_flag_as_required("data_dir")
 
-    if True:
+    if False:
         sys.argv += ['--data_dir=../data/dedup/', '--tfidf']
         FLAGS(sys.argv)
     else:

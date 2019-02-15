@@ -196,4 +196,3 @@ def get_similarity_features(data_gen, colnames, output_file):
     features.columns = columns
 
     np.savez(output_file, samples=features.values, columns=columns)
-    return features
