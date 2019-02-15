@@ -3,8 +3,9 @@ Sample command lines:
 
 python3 preprocessing/sampling.py \
 --data_dir=../data/dedup \
---nrows=20 \
---nchoices=20 
+--nrows=2 \
+--nchoices=2 \
+--for_test
 
 
 """
@@ -161,6 +162,9 @@ def sample_one(found, et, synid, prior):
 
     samples = df.loc[ixs]
     values = samples.values.tolist()
+    if FLAGS.for_test:
+        return values
+
     if samples['target'].max() == 0:
         target = df[df['target'] == 1]
         if len(target):
@@ -183,10 +187,14 @@ def query_one(id2brand, prior, et):
     if bid:
         bname = id2brand[bid]['name']
 
-    met = mdb.etalons.find_one(
-        {'_id': et['srcId']}, projection=['name', 'synonyms'])
-    msyns = ' '.join([s['name'] for s in met.get('synonyms', [])])
-    msplited = set(prog.sub(' ', met['name'] + ' ' + msyns).lower().split())
+    if not FLAGS.for_test:
+        met = mdb.etalons.find_one(
+            {'_id': et['srcId']}, projection=['name', 'synonyms'])
+        msyns = ' '.join([s['name'] for s in met.get('synonyms', [])])
+        metstr = met['name'] + ' ' + msyns
+        msplited = set(prog.sub(' ', metstr).lower().split())
+    else:
+        msplited = set()
 
     samples, positions = [], []
 
@@ -195,7 +203,7 @@ def query_one(id2brand, prior, et):
         splited = prog.sub(' ', curname).lower().split()
 
         common = msplited.intersection(splited)
-        if common == set() or len(splited) <= 2:
+        if (not FLAGS.for_test and common == set()) or len(splited) <= 2:
             continue
 
         curname = tools.normalize(curname)
@@ -252,7 +260,7 @@ def get_existing(anew=False):
         return bulk
 
 
-def solr_sample(existing):
+def solr_sample(elements):
     client = MongoClient(FLAGS.mongo_host)
     db = client[FLAGS.feed_db]
 
@@ -268,16 +276,19 @@ def solr_sample(existing):
 
     wraper = partial(query_one, id2brand, prior)
 
-    def do_iterate(db, existing):
-        for el in existing:
+    def do_iterate(db, elements):
+        for el in elements:
             et = db.etalons.find_one({'_id': el['_id']})
-            et['srcId'] = el['_id_release']
+            if FLAGS.for_test:
+                et['srcId'] = None
+            else:
+                et['srcId'] = el['_id_release']
             yield et
 
     nworkers = mp.cpu_count()
     with mp.Pool(20) as p:  # maxtasksperchild=5000
-        with tqdm(total=len(existing)) as pbar:
-            for samps, poss in tqdm(p.imap_unordered(wraper, do_iterate(db, existing))):
+        with tqdm(total=len(elements)) as pbar:
+            for samps, poss in tqdm(p.imap_unordered(wraper, do_iterate(db, elements))):
                 samples += samps
                 positions += poss
                 pbar.update()
@@ -291,17 +302,6 @@ def solr_sample(existing):
     samples = pd.DataFrame(samples)
     columns = ['qid', 'synid', 'fid', 'score', 'target', 'ix']  # , 'train'
     samples.columns = columns
-
-    # synids_exclude = set(samples[samples['ix'] == -1]['synid'].unique())
-    # cond = samples['synid'].isin(synids_exclude)
-
-    # # saeve not found queries for separate testing
-    # notfound = samples[cond].values.astype(np.float32)
-    # np.savez(FLAGS.data_dir + '/notfound.npz',
-    #          samples=notfound, columns=samples.columns)
-
-    # # can't train models without target label
-    # samples = samples[~cond]
 
     if not FLAGS.for_test:
         qids_train, qids_test = train_test_split(
@@ -322,10 +322,13 @@ def main(argv):
     existing = get_existing(anew=False)
 
     if FLAGS.for_test:
-        samples = tools.load_samples('../data/dedup/samples.npz')
-        qids = set(samples[samples['train'] == 0]['qid'].unique())
-        filtered = [el for el in existing if el['_id'] in qids]
-        solr_sample(filtered)
+        client = MongoClient(FLAGS.mongo_host)
+        db = client[FLAGS.feed_db]
+        not_existing = db.etalons.find(
+            {'_id': {'$nin': [el['_id'] for el in existing]}},
+            projection=['_id'])
+        not_existing = [el for el in not_existing][:400]
+        solr_sample(not_existing)
     else:
         solr_sample(existing)
 

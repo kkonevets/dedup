@@ -187,6 +187,9 @@ def get_similarity_features(data_gen, colnames, output_file):
     # for values, columns in map(wraper, data_gen):
     #     vals.append(values)
 
+    if len(vals) == 0:
+        return None
+
     columns = colnames + columns
 
     features = pd.DataFrame(vals, dtype=np.float32)

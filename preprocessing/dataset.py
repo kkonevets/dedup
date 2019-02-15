@@ -122,9 +122,9 @@ def load_sim_ftrs():
     def load_one(train=True):
         tag = 'train' if train else 'test'
         filename = FLAGS.data_dir + '/%s_sim_ftrs.npz' % tag
-        sim_ftrs = tools.load_samples(filename)
-        if sim_ftrs is None:
+        if not os.path.isfile(filename):
             return
+        sim_ftrs = tools.load_samples(filename)
 
         sim_ftrs.drop_duplicates(['qid', 'synid', 'fid'], inplace=True)
         if FLAGS.tfidf:

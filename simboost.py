@@ -48,7 +48,7 @@ def build_ranker():
     group_vali = get_groups(FLAGS.data_dir + '/vali_letor.group')
     group_test = get_groups(FLAGS.data_dir + '/test_letor.group')
 
-    recall_scale = scoring.get_recall_scale()
+    recall_scale = scoring.get_recall_test_scale()
 
     params = {
         'objective': 'rank:ndcg',
@@ -92,7 +92,7 @@ def build_classifier():
     ftrain = ftrain[ftrain['ix'] != -1]
     ftest = ftest[ftest['ix'] != -1]
 
-    recall_scale = scoring.get_recall_scale()
+    recall_scale = scoring.get_recall_test_scale()
 
     qid_train, _ = train_test_split(
         ftrain['qid'].unique(), test_size=0.1, random_state=42)
@@ -134,13 +134,6 @@ def build_classifier():
     joblib.dump(xgb_clr, FLAGS.data_dir + '/xgb_clr.model')
     # xgb_clr = joblib.load('../data/dedup/xgb_clr.model')
 
-    # analyze
-    # itest = pd.read_csv('../data/dedup/test_letor.ix',
-    #                     header=None, sep='\t')
-    # itest.columns = ['qid', 'synid', 'fid', 'target']
-    # itest['prob'] = test_probs
-    # itest['pred'] = (itest['prob'] > 0.8).astype(int)
-
     # for max_depth in [3, 5, 8, 10, 15]:
     #     params['max_depth'] = max_depth
     #     xgb_clr = xgb.train(params, dtrain,
@@ -148,6 +141,22 @@ def build_classifier():
     #                         early_stopping_rounds=10,
     #                         evals=[(dvali, 'vali')])
     #     y_pred = clr_predict(xgb_clr, dtest, threshold=0.5, tag=str(max_depth))
+
+    # ftest['prob'] = test_probs
+    # ftest[INFO_COLUMNS+['score', 'prob']].sort_values(['qid', 'synid', 'fid', 'target'])
+
+
+def test():
+    xgb_clr = joblib.load('../data/dedup/xgb_clr.model')
+    ftrain, ftest = load_sim_ftrs()
+    value_cols = [c for c in ftest.columns if c not in INFO_COLUMNS]
+    dtest = DMatrix(ftest[value_cols])
+    probs = xgb_clr.predict(dtest)
+    samples = tools.load_samples('../data/dedup/samples.npz')
+    samples['prob'] = probs
+    samples.to_excel('../data/dedup/samples_look.xlsx', index=False)
+
+    samples[samples['prob'] > 0.95]
 
 
 def main(argv):
@@ -158,7 +167,7 @@ def main(argv):
 if __name__ == "__main__":
     flags.mark_flag_as_required("data_dir")
 
-    if False:
+    if True:
         sys.argv += ['--data_dir=../data/dedup/', '--tfidf']
         FLAGS(sys.argv)
     else:

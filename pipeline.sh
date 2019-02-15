@@ -8,13 +8,14 @@ export PYTHONPATH="$PYTHONPATH:$PWD"
 printf "${RED}sampling\n${NC}"
 python3 preprocessing/sampling.py \
 --data_dir=../data/dedup/ \
---nrows=10 \
---nchoices=10 
+--nrows=2 \
+--nchoices=2 \
+--for_test
 
 printf "${RED}corpus\n${NC}"
 python3 preprocessing/corpus.py \
 --data_dir=../data/dedup/ \
---build_tfidf
+#--build_tfidf
 
 printf "${RED}coping to ${NC}$dst\n"
 scp -r -C ../data/dedup/* $dst:/home/ubuntu/data/dedup

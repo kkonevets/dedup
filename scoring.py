@@ -76,9 +76,9 @@ def plot_precision_recall(y_true, probas_pred, tag='', recall_scale=1):
     fig.savefig('../data/dedup/prec_recal%s.pdf' % tag, dpi=400)
 
 
-def get_recall_scale():
+def get_recall_test_scale():
     samples = tools.load_samples('../data/dedup/samples.npz')
-    ptest = samples[(samples['target'] == 1) & (samples['train'] == 0)]
+    ptest = samples[(samples['train'] == 0) & (samples['target'] == 1)]
     counts = ptest['ix'].value_counts()
     recall_scale = 1-counts[-1]/counts.sum()
     return recall_scale
