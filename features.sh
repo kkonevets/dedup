@@ -1,5 +1,8 @@
 # run from ubuntu@10.72.102.67
 
+# exit when any command fails
+set -e
+
 interpreter=~/miniconda3/bin/python
 
 RED='\033[0;31m'
@@ -16,7 +19,7 @@ $interpreter preprocessing/dataset.py \
 --build_tfidf \
 --tfidf
 
-# printf "${RED}simboost\n${NC}"
-# $interpreter simboost.py \
-# --data_dir=../data/dedup/ \
-# --tfidf
+printf "${RED}simboost\n${NC}"
+$interpreter simboost.py \
+--data_dir=../data/dedup/ \
+--tfidf

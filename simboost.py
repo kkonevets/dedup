@@ -126,7 +126,7 @@ def build_classifier():
 
     test_probs = xgb_clr.predict(dtest)
     y_pred = scoring.clr_predict(test_probs, dtest, threshold=0.5)
-    scoring.plot_precision_recall(dtest.get_label(), test_probs, tag='5x5',
+    scoring.plot_precision_recall(dtest.get_label(), test_probs, tag='',
                                   recall_scale=recall_scale)
     cm = confusion_matrix(dtest.get_label(), y_pred)
     print(cm)
@@ -152,12 +152,20 @@ def test():
     value_cols = [c for c in ftest.columns if c not in INFO_COLUMNS]
     dtest = DMatrix(ftest[value_cols])
     probs = xgb_clr.predict(dtest)
-    samples = tools.load_samples('../data/dedup/samples.npz')
-    del samples['target']
-    samples['prob'] = probs
-    samples.to_excel('../data/dedup/samples_look.xlsx', index=False)
 
-    samples[samples['prob'] > 0.6]
+    ftest['prob'] = probs
+    sub = ftest[['qid', 'synid', 'fid', 'score', 'ix', 'prob']]
+
+    maxs = sub[['synid', 'prob']].groupby('synid').max()['prob']
+    N = len(sub['ix'].unique())
+    ax = maxs.hist()
+    fig = ax.get_figure()
+    ax.set_xlabel("excluded probs")
+    ax.set_ylabel("distribution")
+    fig.savefig('../data/dedup/notexisting_probs.pdf')
+
+    sub[sub['prob'] > 0.6]
+    # sub.to_excel('../data/dedup/samples_look.xlsx', index=False)
 
 
 def main(argv):

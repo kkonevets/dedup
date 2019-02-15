@@ -1,3 +1,6 @@
+# exit when any command fails
+set -e
+
 RED='\033[0;31m'
 NC='\033[0m'
 
@@ -8,16 +11,16 @@ export PYTHONPATH="$PYTHONPATH:$PWD"
 printf "${RED}sampling\n${NC}"
 python3 preprocessing/sampling.py \
 --data_dir=../data/dedup/ \
---nrows=20 \
---nchoices=20 \
---for_test
+--nrows=50 \
+--nchoices=50 
+#--for_test
 
 printf "${RED}corpus\n${NC}"
 python3 preprocessing/corpus.py \
 --data_dir=../data/dedup/ \
-#--build_tfidf
+--build_tfidf
 
 printf "${RED}coping to ${NC}$dst\n"
-scp -r -C ../data/dedup/* $dst:/home/ubuntu/data/dedup
+rsync -amvzP ../data/dedup/* $dst:/home/ubuntu/data/dedup
 
 ssh $dst 'bash -s' < features.sh
