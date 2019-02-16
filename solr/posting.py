@@ -7,10 +7,10 @@ import multiprocessing as mp
 from pymongo import MongoClient
 
 client = MongoClient(tools.c_HOST)
-db = client['release']
+mdb = client['release']
 
-id2cat = {c['_id']: c for c in db.categories.find({}, projection=['name'])}
-id2brand = {c['_id']: c for c in db.brands.find({}, projection=['name'])}
+id2cat = {c['_id']: c for c in mdb.categories.find({}, projection=['name'])}
+id2brand = {c['_id']: c for c in mdb.brands.find({}, projection=['name'])}
 
 prog = re.compile("[\\W]", re.UNICODE)
 
@@ -31,16 +31,6 @@ def clean_et(et, exclude=None):
         v = et[k]
         if type(v) == str:
             et[k] = tools.normalize(v)
-
-
-def unique_syn(syn):
-    unique = set()
-    res = []
-    for tag in syn.split():
-        if tag not in unique:
-            res.append(tag)
-            unique.update([tag])
-    return ' '.join(res)
 
 
 def proceed_one(et):
@@ -76,14 +66,14 @@ def proceed_one(et):
 
     sval = new_et.get('synonyms')
     if sval:
-        new_et['synonyms'] = unique_syn(sval)
+        new_et['synonyms'] = tools.unique_syn(sval)
 
     return new_et
 
 
 def etalons_to_docs():
-    total = db.etalons.count_documents({})
-    iterator = db.etalons.find(
+    total = mdb.etalons.count_documents({})
+    iterator = mdb.etalons.find(
         {}, projection=['name', 'categoryId', 'synonyms', 'brandId',
                         'barcodes', 'unitName', 'source'])
 

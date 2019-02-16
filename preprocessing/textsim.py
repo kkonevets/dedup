@@ -193,7 +193,7 @@ def append_h5(fname, vals, columns):
         hf.flush()
 
 
-def get_similarity_features(data_gen, colnames, output_file):
+def extract_similarity_features(data_gen, colnames, output_file):
     if os.path.isfile(output_file):
         os.remove(output_file)
 

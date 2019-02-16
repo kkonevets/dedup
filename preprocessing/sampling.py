@@ -190,6 +190,7 @@ def query_one(id2brand, prior, et):
         bname = id2brand[bid]['name']
 
     if not FLAGS.for_test:
+        # too long, need optimize - prefetch all mets before quering
         met = mdb.etalons.find_one(
             {'_id': et['srcId']}, projection=['name', 'synonyms'])
         msyns = ' '.join([s['name'] for s in met.get('synonyms', [])])

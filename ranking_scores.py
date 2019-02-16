@@ -1,5 +1,5 @@
 import numpy as np
-from tools import ndcg_at_k
+from scoring import ndcg_at_k
 
 
 def test_tensor():

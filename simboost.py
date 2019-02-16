@@ -164,8 +164,7 @@ def test():
     ax.set_ylabel("distribution")
     fig.savefig('../data/dedup/notexisting_probs.pdf')
 
-    sub[sub['prob'] > 0.6]
-    # sub.to_excel('../data/dedup/samples_look.xlsx', index=False)
+    # sub[sub['prob'] > 0.9].to_excel('../data/dedup/samples_look.xlsx', index=False)
 
 
 def main(argv):
@@ -176,7 +175,7 @@ def main(argv):
 if __name__ == "__main__":
     flags.mark_flag_as_required("data_dir")
 
-    if True:
+    if False:
         sys.argv += ['--data_dir=../data/dedup/', '--tfidf']
         FLAGS(sys.argv)
     else:

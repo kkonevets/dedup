@@ -126,7 +126,7 @@ def load_sim_ftrs():
         if not os.path.isfile(filename):
             return
         with h5py.File(filename, 'r') as hf:
-            sim_ftrs = pd.Dataframe(hf['ftrs'][:])
+            sim_ftrs = pd.DataFrame(hf['ftrs'][:])
             sim_ftrs.columns = hf['ftrs'].attrs['columns']
 
         sim_ftrs.drop_duplicates(['qid', 'synid', 'fid'], inplace=True)
@@ -160,9 +160,9 @@ def main(argv):
         to_example(test_gen, FLAGS.data_dir + '/test.tfrecord')
     if FLAGS.build_features:
         train_gen, test_gen = prod.gen_pairs()
-        textsim.get_similarity_features(
+        textsim.extract_similarity_features(
             test_gen, COLNAMES, FLAGS.data_dir + '/test_sim_ftrs.h5')
-        textsim.get_similarity_features(
+        textsim.extract_similarity_features(
             train_gen, COLNAMES, FLAGS.data_dir + '/train_sim_ftrs.h5')
 
     train_sim_ftrs, test_sim_ftrs = load_sim_ftrs()

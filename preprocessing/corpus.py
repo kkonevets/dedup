@@ -53,12 +53,12 @@ def make_corpus():
 
     if FLAGS.build_tfidf:
         total = mdb.etalons.count_documents({})
-        ets = mdb.etalons.find({}, projection=['name', 'brandId'])
+        ets = mdb.etalons.find({}, projection=['name', 'brandId', 'synonyms'])
     else:
         ids = list(samples['fid'].unique())
         total = len(ids)
         ets = mdb.etalons.find({'_id': {'$in': ids}},
-                               projection=['name', 'brandId'])
+                               projection=['name', 'brandId', 'synonyms'])
 
     for et in tqdm(ets, total=total):
         text = tools.constitute_text(et['name'], et, mid2brand)
