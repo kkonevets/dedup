@@ -23,4 +23,4 @@ python3 preprocessing/corpus.py \
 printf "${RED}coping to ${NC}$dst\n"
 rsync -amvzP ../data/dedup/* $dst:/home/ubuntu/data/dedup
 
-# ssh $dst 'bash -s' < features.sh
+ssh $dst 'bash -s' < features.sh
