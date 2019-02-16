@@ -190,6 +190,7 @@ def append_h5(fname, vals, columns):
 
         hf['ftrs'][-vals.shape[0]:] = vals
         hf['ftrs'].attrs['columns'] = columns
+        hf.flush()
 
 
 def get_similarity_features(data_gen, colnames, output_file):
@@ -197,7 +198,7 @@ def get_similarity_features(data_gen, colnames, output_file):
         os.remove(output_file)
 
     vals = []
-    max_len = 100000
+    max_len = 200000
     maxtasksperchild = int(max_len/mp.cpu_count())
     with mp.Pool(mp.cpu_count(), maxtasksperchild=maxtasksperchild) as p:
         for values, columns in p.imap_unordered(sim_worker, data_gen):
