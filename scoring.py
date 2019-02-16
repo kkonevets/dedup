@@ -45,7 +45,7 @@ def plot_topn_curves(positions_list, fname, scale=1, labels=None, title=None):
     # xtics = list(df.index)[::2]
     # if xtics[-1] != df.index[-1]:
     #     xtics.append(df.index[-1])
-    ax.set_xticks(df.index)
+    # ax.set_xticks(df.index)
     fig = ax.get_figure()
     ax.set_xlabel("top N")
     ax.set_ylabel("recall")

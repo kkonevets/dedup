@@ -12,8 +12,9 @@ import textdistance as td
 from similarity.ngram import NGram
 from similarity.qgram import QGram
 from dedup import lcs
+import os
 import multiprocessing as mp
-
+import h5py
 
 lcsstr = td.LCSStr()
 
@@ -177,22 +178,32 @@ def sim_worker(tup):
     return values, columns
 
 
+def append_h5(fname, vals, columns):
+    vals = np.array(vals, dtype=np.float32)
+    with h5py.File(fname, 'a') as hf:
+        if len(hf.keys()) == 0:
+            hf.create_dataset('ftrs', data=vals,
+                              maxshape=(None, vals.shape[1]),
+                              dtype='f', chunks=True)
+        else:
+            hf['ftrs'].resize(hf['ftrs'].shape[0] + vals.shape[0], axis=0)
+
+        hf['ftrs'][-vals.shape[0]:] = vals
+        hf['ftrs'].attrs['columns'] = columns
+
+
 def get_similarity_features(data_gen, colnames, output_file):
-    columns = []
+    if os.path.isfile(output_file):
+        os.remove(output_file)
+
     vals = []
-    with mp.Pool(mp.cpu_count(), maxtasksperchild=30000) as p:
+    max_len = 100000
+    maxtasksperchild = int(max_len/mp.cpu_count())
+    with mp.Pool(mp.cpu_count(), maxtasksperchild=maxtasksperchild) as p:
         for values, columns in p.imap_unordered(sim_worker, data_gen):
             vals.append(values)
-
-    # for values, columns in map(wraper, data_gen):
-    #     vals.append(values)
-
-    if len(vals) == 0:
-        return None
-
-    columns = colnames + columns
-
-    features = pd.DataFrame(vals, dtype=np.float32)
-    features.columns = columns
-
-    np.savez(output_file, samples=features.values, columns=columns)
+            if len(vals) >= max_len:
+                append_h5(output_file, vals, colnames + columns)
+                vals = []
+        # for values, columns in map(wraper, data_gen):
+        #     vals.append(values)

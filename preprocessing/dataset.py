@@ -17,6 +17,7 @@ import pandas as pd
 import os
 import io
 import sys
+import h5py
 from preprocessing import textsim
 from tqdm import tqdm
 import multiprocessing as mp
@@ -121,10 +122,12 @@ def load_sim_ftrs():
 
     def load_one(train=True):
         tag = 'train' if train else 'test'
-        filename = FLAGS.data_dir + '/%s_sim_ftrs.npz' % tag
+        filename = FLAGS.data_dir + '/%s_sim_ftrs.h5' % tag
         if not os.path.isfile(filename):
             return
-        sim_ftrs = tools.load_samples(filename)
+        with h5py.File(filename, 'r') as hf:
+            sim_ftrs = pd.Dataframe(hf['ftrs'][:])
+            sim_ftrs.columns = hf['ftrs'].attrs['columns']
 
         sim_ftrs.drop_duplicates(['qid', 'synid', 'fid'], inplace=True)
         if FLAGS.tfidf:
@@ -158,9 +161,9 @@ def main(argv):
     if FLAGS.build_features:
         train_gen, test_gen = prod.gen_pairs()
         textsim.get_similarity_features(
-            test_gen, COLNAMES, FLAGS.data_dir + '/test_sim_ftrs.npz')
+            test_gen, COLNAMES, FLAGS.data_dir + '/test_sim_ftrs.h5')
         textsim.get_similarity_features(
-            train_gen, COLNAMES, FLAGS.data_dir + '/train_sim_ftrs.npz')
+            train_gen, COLNAMES, FLAGS.data_dir + '/train_sim_ftrs.h5')
 
     train_sim_ftrs, test_sim_ftrs = load_sim_ftrs()
     letor = Letor(FLAGS.data_dir, train_sim_ftrs, test_sim_ftrs)

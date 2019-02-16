@@ -176,7 +176,7 @@ def main(argv):
 if __name__ == "__main__":
     flags.mark_flag_as_required("data_dir")
 
-    if False:
+    if True:
         sys.argv += ['--data_dir=../data/dedup/', '--tfidf']
         FLAGS(sys.argv)
     else:

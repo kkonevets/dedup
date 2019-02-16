@@ -3,31 +3,32 @@ import json
 from tqdm import tqdm
 import tools
 import pandas as pd
+import numpy as np
 from pymongo import MongoClient
 import fuzzy
+import h5py
 
-with io.open('../data/release/1cnrel-2019-01-09-17-2019-02-04-09.json',
-             encoding='utf8') as f:
-    feed = json.load(f)
-
-tools.feed2mongo(feed, 'release')
+ftrs = tools.load_samples('../data/dedup/corpus.npz')
+ftrs = ftrs[['synid', 'fid', 'train']].values.astype(np.float)
 
 
-corpus = tools.load_samples(
-    '../data/dedup/corpus.npz')
+def append_h5(fname, vals, columns):
+    vals = np.array(vals, dtype=np.float32)
+    with h5py.File(fname, 'a') as hf:
+        if len(hf.keys()) == 0:
+            hf.create_dataset('ftrs', data=vals,
+                              maxshape=(None, vals.shape[1]),
+                              dtype='f', chunks=True)
+        else:
+            hf['ftrs'].resize(hf['ftrs'].shape[0] + vals.shape[0], axis=0)
 
-lens = []
-for name in corpus['text'].values:
-    splited = name.split()
-    lens.append(len(splited))
-
-lens = pd.DataFrame(lens)
-for qa in [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]:
-    print(qa, lens.quantile(qa)[0])
+        hf['ftrs'][-vals.shape[0]:] = vals
+        hf['ftrs'].attrs['columns'] = columns
 
 
-soundex = fuzzy.Soundex(4)
-dmeta = fuzzy.DMetaphone()
+append_h5('../data/dedup/50_50_ftrs.h5', ftrs, ['synid', 'fid', 'train'])
 
-soundex("fuzzy")
-dmeta('папа')
+
+hf = h5py.File('../data/dedup/50_50_ftrs.h5', 'a')
+hf['ftrs'].attrs['columns']
+hf.close()
