@@ -32,3 +32,14 @@ append_h5('../data/dedup/50_50_ftrs.h5', ftrs, ['synid', 'fid', 'train'])
 hf = h5py.File('../data/dedup/50_50_ftrs.h5', 'a')
 hf['ftrs'].attrs['columns']
 hf.close()
+
+
+l = [1, 244, 3]
+for i in l:
+    if i > 20:
+        break
+else:
+    if len(l) == 0:
+        print('l==0')
+    else:
+        print('else')

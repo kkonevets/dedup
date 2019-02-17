@@ -112,20 +112,19 @@ def get_prior(anew=True):
 
 def append_position(positions, found, et, curname, mname, bname, bcs):
     rec = [et['id'], curname, bname]
-    if len(found) == 0:
-        rec += [None, mname, '', -1]
-        positions.append(rec)
 
     for i, el in enumerate(found):
         curbcs = [int(c) for c in el.get('barcodes', [])]
         if len(bcs.intersection(curbcs)):
             rec += [int(el['id']), el.get('name', ''), el.get('brand', ''), i]
-            positions.append(rec)
             break
+    else:
+        if len(found) == 0:
+            rec += [None, mname, '', -1]
+        else:
+            rec += [et['srcId'], mname, '', -2]
 
-    if len(rec) == 3:
-        rec += [et['srcId'], mname, '', -2]
-        positions.append(rec)
+    positions.append(rec)
 
 
 def sample_one(found, et, synid, prior):

@@ -102,10 +102,9 @@ def extract_similarity_features(data_gen, colnames, output_file):
             if len(vals) >= max_len:
                 append_h5(output_file, vals, colnames + columns)
                 vals = []
-
-    # finaly
-    if len(vals):
-        append_h5(output_file, vals, colnames + columns)
+        else:  # finaly
+            if len(vals):
+                append_h5(output_file, vals, colnames + columns)
 
         # for values, columns in map(wraper, data_gen):
         #     vals.append(values)
