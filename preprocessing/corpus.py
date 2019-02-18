@@ -61,7 +61,7 @@ def make_corpus():
                                projection=['name', 'brandId', 'synonyms'])
 
     for et in tqdm(ets, total=total):
-        text = tools.constitute_text(et['name'], et, mid2brand)
+        text = tools.constitute_text(et['name'], et, mid2brand, use_syns=True)
         corpus.append((None, et['_id'], None,
                        tools.normalize(text, translit=translit)))
 
@@ -73,7 +73,7 @@ def make_corpus():
     subdf = samples[['synid', 'train']].drop_duplicates()
     for _id, train in tqdm(subdf.values):
         name, et = sid2et[_id]
-        text = tools.constitute_text(name, et, id2brand)
+        text = tools.constitute_text(name, et, id2brand, use_syns=False)
         corpus.append((_id, None, train,
                        tools.normalize(text, translit=translit)))
 

@@ -269,12 +269,13 @@ def unique_syn(syn):
     return ' '.join(res)
 
 
-def constitute_text(name, et, id2brand):
+def constitute_text(name, et, id2brand, use_syns=False):
     text = name.lower()
-    syns = [s['name'].lower() for s in et.get('synonyms', [])]
-    if syns:
-        syns = [text] + syns
-        text = unique_syn(' '.join(syns))
+    if use_syns:
+        syns = [s['name'].lower() for s in et.get('synonyms', [])]
+        if syns:
+            syns = [text] + syns
+            text = unique_syn(' '.join(syns))
 
     bid = et.get('brandId')
     if bid:

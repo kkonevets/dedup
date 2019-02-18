@@ -170,6 +170,7 @@ def test():
 def main(argv):
     build_ranker()
     build_classifier()
+    # test()
 
 
 if __name__ == "__main__":
