@@ -1,7 +1,12 @@
 import tools
-from collections import namedtuple
+from dataclasses import dataclass
 
-QDInfo = namedtuple('QDInfo', ['q_terms', 'd_terms', 'ixs'])
+
+@dataclass
+class QDInfo:
+    q_terms: list
+    d_terms: list
+    ixs: list
 
 
 class Producer:
