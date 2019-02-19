@@ -5,6 +5,7 @@ import numpy as np
 from fuzzywuzzy import fuzz
 import py_stringmatching as sm
 import Levenshtein
+from similarity.qgram import QGram
 import textdistance as td
 
 lcsstr = td.LCSStr()
