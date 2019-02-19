@@ -9,7 +9,6 @@ python3 preprocessing/corpus.py \
 from absl import flags
 from absl import app
 import tools
-import json
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
@@ -17,7 +16,6 @@ from pymongo import MongoClient
 import io
 import sys
 from nltk.corpus import stopwords
-from sklearn.feature_extraction.text import TfidfVectorizer
 
 FLAGS = tools.FLAGS
 
@@ -88,6 +86,8 @@ def get_tfidf(corpus, columns):
     '''
     Build tf-idf model using master data and 1c-Fresh train data
     '''
+    from sklearn.feature_extraction.text import TfidfVectorizer
+
     corpus = pd.DataFrame(corpus)
     corpus.columns = columns
     corpus = corpus[corpus['train'] != 0]

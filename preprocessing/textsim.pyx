@@ -1,10 +1,3 @@
-"""
-longest common subsequence
-modified from the code snippets at
-http://en.wikibooks.org/wiki/Algorithm_Implementation/Strings/Longest_common_subsequence#Python
-cython -a lcs.pyx to output HTML
-"""
-
 cimport cython
 from libcpp.vector cimport vector
 
@@ -13,8 +6,6 @@ from fuzzywuzzy import fuzz
 import py_stringmatching as sm
 import Levenshtein
 import textdistance as td
-from similarity.ngram import NGram
-from similarity.qgram import QGram
 
 lcsstr = td.LCSStr()
 

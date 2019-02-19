@@ -1,16 +1,10 @@
+import numpy as np
 import pandas as pd
 import tools
 import time
 from tqdm import tqdm
 
-import numpy as np
-from fuzzywuzzy import fuzz
-import py_stringmatching as sm
 from pprint import pprint
-import Levenshtein
-import textdistance as td
-from similarity.ngram import NGram
-from similarity.qgram import QGram
 from dedup.textsim import get_sim_features, func_map
 import os
 import multiprocessing as mp
@@ -66,10 +60,9 @@ def test():
     pprint(s)
 
 
-def sim_worker(tup):
-    q_terms, d_terms, info = tup
-    ftrs = get_sim_features(q_terms, d_terms)
-    values = list(info) + list(ftrs.values())
+def sim_worker(qdi):
+    ftrs = get_sim_features(qdi.q_terms, qdi.d_terms)
+    values = list(qdi.ixs) + list(ftrs.values())
     columns = list(ftrs.keys())
     return values, columns
 

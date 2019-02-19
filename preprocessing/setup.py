@@ -11,6 +11,6 @@ ext_modules = [
 ]
 
 setup(
-    name='prepro',
+    name='textsim',
     ext_modules=cythonize(ext_modules)
 )

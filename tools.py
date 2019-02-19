@@ -35,22 +35,18 @@ flags.DEFINE_bool("build_tfidf", False, "build tfidf model")
 flags.DEFINE_bool("tfidf", False, "use tfidf features")
 flags.DEFINE_bool("fasttext", False, "use fasttext features")
 flags.DEFINE_bool("for_test", False, "sample just for test")
-flags.DEFINE_bool("no_prior", False, "query without prior")
 flags.DEFINE_bool("build_features", False, "build column features")
 flags.DEFINE_bool("build_fasttext", False, "build fasttext features")
 flags.DEFINE_bool("build_tfrecord", False,
                   "build tensorflow record input files")
 flags.DEFINE_integer("nrows", 100, "The TOP number of rows to query")
-flags.DEFINE_integer("nchoices", 5, "The number of rows to sample from nrows")
-
-
-# from tokenizer import tokenize
 
 
 chars = string.punctuation
 chars = chars.replace('%', '').replace('_', '').replace('@', '')
 punct_tt = str.maketrans(dict.fromkeys(chars, ' '))
 prog = re.compile("[\\W\\d]", re.UNICODE)
+prog_with_digits = re.compile("[\\W]", re.UNICODE)
 
 float_prog = re.compile(r"[-+]?\d*\.\d+|\d+", re.UNICODE)
 dot_prog = re.compile(r'[xх*]', re.UNICODE)
@@ -138,23 +134,6 @@ def normalize_v2(sent, translit=False):
     tmp = sent.translate(TransTable).lower()
     tokens = (proceed_token(t, translit) for t in wt.tokenize(tmp, False))
     return tokens
-
-
-def normalize_v1(sent):
-    """
-    this is better than v0
-    """
-    sent = sent.translate(TransTable).lower()
-    tokens = (t for t in wt.tokenize(sent, False) if len(t) > 1)
-    sent = " ".join(tokens)
-    return sent
-
-
-def normalize_v0(sent):
-    tokens = sent.translate(punct_tt).lower().split()
-    tokens = (prog.sub('', w) for w in tokens)
-    sent = ' '.join((w for w in tokens if len(w) > 1))
-    return sent
 
 
 def current_dir():

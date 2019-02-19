@@ -4,24 +4,20 @@ Sample command lines:
 python3 preprocessing/sampling.py \
 --data_dir=../data/dedup \
 --nrows=2 \
---nchoices=2 \
---for_test
-
+--for_test \
 
 """
+
 from absl import flags
 from absl import app
 from sklearn.model_selection import train_test_split
-import string
 import pymongo
 from pymongo import MongoClient
-from collections import Counter
 from functools import partial
 import re
 import os
 import pandas as pd
 import numpy as np
-import pickle
 from urllib.parse import quote
 import multiprocessing as mp
 from tqdm import tqdm
@@ -33,36 +29,7 @@ import scoring
 import traceback
 
 FLAGS = tools.FLAGS
-
-
-prog = re.compile("[\\W]", re.UNICODE)
-
-
-def release_stat():
-    client = MongoClient(FLAGS.mongo_host)
-    db = client[FLAGS.release_db]
-    total = db.etalons.count_documents({})
-
-    iterator = db.etalons.find({}, projection=['id', 'name', 'synonyms'])
-    ets = []
-    nocommon = set()
-    for et in tqdm(iterator, total=total):
-        nsplited = prog.sub(' ', et['name']).lower().split()
-        name = ' '.join(nsplited)
-        syns = []
-        for s in et.get('synonyms', []):
-            splited = prog.sub(' ', s['name']).lower().split()
-            sname = ' '.join(splited)
-            common = set(nsplited).intersection(splited)
-            if sname != name and len(splited) > 2:
-                if len(common):
-                    syns.append(s)
-                else:
-                    nocommon.update([et['_id']])
-        if not syns:
-            continue
-        et['synonyms'] = syns
-        ets.append(et)
+SAMPLE_COLUMNS = ['qid', 'synid', 'fid', 'score', 'target', 'ix']  # , 'train'
 
 
 def query_solr(text, rows=1):
@@ -86,48 +53,27 @@ def save_positions(positions):
     db.drop_collection('solr_positions')
     db['solr_positions'].insert_many(positions)
 
-    # positions.to_excel(FLAGS.data_dir + '/solr_positions.xlsx', index=False)
-
     positions = pd.Series([p['i'] for p in positions])
     scoring.plot_topn_curves([positions], FLAGS.data_dir + '/cumsum.pdf')
 
 
-def get_prior(anew=True):
-    prior_file = FLAGS.data_dir + '/priors.csv'
-    if anew:
-        client = MongoClient(FLAGS.mongo_host)
-        db = client['cache']
-        positions = db['solr_positions'].find({}, projection=['i'])
-        positions = pd.Series([p['i'] for p in positions])
-        prior = positions.value_counts()/positions.shape[0]
-        prior.sort_index(ascending=True, inplace=True)
-        prior.to_csv(prior_file, header=False)
-    else:
-        assert os.path.isfile(prior_file)
-        prior = pd.read_csv(prior_file, header=None, index_col=0).loc[:, 1]
-
-    assert prior.index.isin([-1, -2]).sum() == 2
-    return prior
-
-
-def append_position(positions, found, et, curname, mname, bname, bcs):
-    rec = [et['id'], curname, bname]
-
+def get_position_record(found, et, mname):
+    bcs = set([int(c) for c in et['barcodes']])
     for i, el in enumerate(found):
         curbcs = [int(c) for c in el.get('barcodes', [])]
         if len(bcs.intersection(curbcs)):
-            rec += [int(el['id']), el.get('name', ''), el.get('brand', ''), i]
+            rec = [int(el['id']), el.get('name', ''), el.get('brand', ''), i]
             break
     else:
         if len(found) == 0:
-            rec += [None, mname, '', -1]
+            rec = [None, mname, '', -1]
         else:
-            rec += [et['srcId'], mname, '', -2]
+            rec = [et['srcId'], mname, '', -2]
 
-    positions.append(rec)
+    return rec
 
 
-def sample_one(found, et, synid, prior):
+def sample_one(found, et, synid):
     df = [(et['id'],
            synid,
            int(el['id']),
@@ -136,53 +82,28 @@ def sample_one(found, et, synid, prior):
            None)
           for el in found]
     df = pd.DataFrame.from_records(df)
-    df.columns = ['qid', 'synid', 'fid', 'score', 'target', 'ix']
+    df.columns = SAMPLE_COLUMNS
     df['ix'] = df.index
-
-    if FLAGS.for_test or len(found) <= FLAGS.nchoices:
-        ixs = df.index
-    else:
-        # prior index should be sorted in ascending order[-2,-1,0,1,2,3, ...]
-        padded = np.pad(df['score'], (2, len(prior) - len(df) - 2),
-                        mode='constant', constant_values=(df['score'].mean(), 0))
-        padded /= padded.sum()
-        # now -1 and -2 have mean probability, see TODO below
-        p = np.multiply(padded, prior)
-        p /= p.sum()
-        last_ix = len(found) - 1
-        ixs = np.random.choice([last_ix, last_ix] + prior.index[2:].tolist(), FLAGS.nchoices + 1,
-                               replace=False, p=p)
-
-        # TODO: sample randomly from out of range
-        # out_of_range = set(ixs).intersection({-1, -2})
-        # for ix in out_of_range:
-        #     1
 
     # normalize scores
     df['score'] /= df['score'].sum()
 
-    samples = df.loc[ixs]
-    values = samples.values.tolist()
+    values = df.values.tolist()
     if FLAGS.for_test:
         return values
 
-    if samples['target'].max() == 0:
-        target = df[df['target'] == 1]
-        if len(target):
-            values[0] = target.iloc[0].values.tolist()
-        else:
-            # target is not in the TOP
-            values[0] = [et['id'], synid, et['srcId'], 0, 1, -1]
+    if df['target'].max() == 0:
+        # target is not in the TOP
+        values.insert(0, [et['id'], synid, et['srcId'], 0, 1, -1])
 
     return values
 
 
-def query_one(id2brand, prior, et):
+def query_one(id2brand, et):
     client = MongoClient(FLAGS.mongo_host)
     mdb = client[FLAGS.release_db]
 
     et['id'] = et.pop('_id')
-    bcs = set([int(c) for c in et['barcodes']])
     bid = et.get('brandId')
     bname = ''
     if bid:
@@ -195,15 +116,14 @@ def query_one(id2brand, prior, et):
             {'_id': et['srcId']}, projection=['name', 'synonyms'])
         msyns = ' '.join([s['name'] for s in met.get('synonyms', [])])
         metstr = met['name'] + ' ' + msyns
-        msplited = set(prog.sub(' ', metstr).lower().split())
+        msplited = set(tools.prog_with_digits.sub(' ', metstr).lower().split())
     else:
         msplited = set()
 
     samples, positions = [], []
-
     for syn in et.get('synonyms', []):
         curname = syn['name'] + ' ' + bname
-        splited = prog.sub(' ', curname).lower().split()
+        splited = tools.prog_with_digits.sub(' ', curname).lower().split()
 
         common = msplited.intersection(splited)
         if (not FLAGS.for_test and common == set()) or len(splited) <= 2:
@@ -214,12 +134,11 @@ def query_one(id2brand, prior, et):
             continue
         found = query_solr(curname, FLAGS.nrows)
 
-        if not FLAGS.no_prior and len(found):
-            samples += sample_one(found, et, syn['id'], prior)
+        if len(found):
+            samples += sample_one(found, et, syn['id'])
 
-        if not FLAGS.for_test:
-            append_position(positions, found, et, curname,
-                            met['name'], bname, bcs)
+        rec = get_position_record(found, et, met['name'])
+        positions.append([et['id'], curname, bname] + rec)
 
     return samples, positions
 
@@ -268,16 +187,9 @@ def solr_sample(elements):
     db = client[FLAGS.feed_db]
 
     id2brand = {c['_id']: c for c in db.brands.find({}, projection=['name'])}
-
     positions, samples = [], []
-    np.random.seed(0)
 
-    if FLAGS.for_test or FLAGS.no_prior:
-        prior = None
-    else:
-        prior = get_prior(anew=True)
-
-    wraper = partial(query_one, id2brand, prior)
+    wraper = partial(query_one, id2brand)
 
     def do_iterate(db, elements):
         for el in elements:
@@ -288,31 +200,20 @@ def solr_sample(elements):
                 et['srcId'] = el['_id_release']
             yield et
 
-    nworkers = mp.cpu_count()
-    with mp.Pool(20) as p:  # maxtasksperchild=5000
+    # nworkers = mp.cpu_count()
+    with mp.Pool(30) as p:  # maxtasksperchild=5000
         with tqdm(total=len(elements)) as pbar:
+            # for samps, poss in tqdm(map(wraper, do_iterate(db, elements))):
             for samps, poss in tqdm(p.imap_unordered(wraper, do_iterate(db, elements))):
                 samples += samps
                 positions += poss
                 pbar.update()
-                # if len(positions) > 1000:
-                #     break
-
-    # with tqdm(total=len(elements)) as pbar:
-    #     for samps, poss in tqdm(map(wraper, do_iterate(db, elements))):
-    #         samples += samps
-    #         positions += poss
-    #         pbar.update()
-
-    if FLAGS.no_prior:
-        save_positions(positions)
-        return
 
     samples = pd.DataFrame(samples)
-    columns = ['qid', 'synid', 'fid', 'score', 'target', 'ix']  # , 'train'
-    samples.columns = columns
+    samples.columns = SAMPLE_COLUMNS  # + train
 
     if not FLAGS.for_test:
+        save_positions(positions)
         qids_train, qids_test = train_test_split(
             samples['qid'].unique(), test_size=0.2, random_state=11)
         samples['train'] = samples['qid'].isin(qids_train).astype(int)

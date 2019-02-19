@@ -15,19 +15,13 @@ import tools
 import numpy as np
 import pandas as pd
 import os
-import io
 import sys
 import h5py
 from preprocessing import textsim
-from tqdm import tqdm
-import multiprocessing as mp
-from itertools import islice
-from functools import partial
 from sklearn.metrics.pairwise import paired_cosine_distances
 from sklearn.metrics.pairwise import pairwise_distances
 from scipy.spatial.distance import cosine
 from gensim.models import FastText
-import nltk
 import tensorflow as tf
 from preprocessing.producing import Producer
 from preprocessing.letor import Letor
@@ -39,16 +33,14 @@ FLAGS = tools.FLAGS
 COLNAMES = INFO_COLUMNS + ['score', 'ix']
 
 
-def to_example(data, filename):
+def to_example(gen, filename):
     writer = tf.python_io.TFRecordWriter(filename)
-    q_terms, d_terms, info = data
-    labels = info[:, -1]
-    for q, d, l in zip(q_terms, d_terms, labels):
+    for qdi in gen:
             # Create a feature
         feature = {
-            'q_terms': tfrec._bytes_feature([tf.compat.as_bytes(qi) for qi in q]),
-            'd_terms': tfrec._bytes_feature([tf.compat.as_bytes(di) for di in d]),
-            'labels': tfrec._int32_feature(int(l)),
+            'q_terms': tfrec._bytes_feature([tf.compat.as_bytes(qi) for qi in qdi.q_terms]),
+            'd_terms': tfrec._bytes_feature([tf.compat.as_bytes(di) for di in qdi.d_terms]),
+            'labels': tfrec._int32_feature(int(qdi.ix[3])),
         }
         # Create an example protocol buffer
         example = tf.train.Example(features=tf.train.Features(feature=feature))
@@ -62,19 +54,20 @@ def to_example(data, filename):
 def compute_tfidf_dists(train_gen, test_gen):
     model = tools.do_unpickle('../data/dedup/tfidf_model.pkl')
 
-    def get_dists(data, fname):
+    def get_dists(gen, fname):
         qs, ds, ixs = [], [], []
-        for q_terms, d_terms, _ixs in data:
-            qs.append(' '.join(q_terms))
-            ds.append(' '.join(d_terms))
-            ixs.append(_ixs[:3])
+        for qdi in gen:
+            qs.append(' '.join(qdi.q_terms))
+            ds.append(' '.join(qdi.d_terms))
+            ixs.append(qdi.ixs[:3])
         if len(qs) == 0:
             return
         qvecs = model.transform(qs)
         dvecs = model.transform(ds)
 
         dists = paired_cosine_distances(qvecs, dvecs)
-        np.savez(fname, dists=np.hstack([ixs, np.array([dists]).T]))
+        ixs = np.array(ixs, dtype=np.int32)
+        np.savez(fname, vals=np.hstack([ixs, np.array([dists]).T]))
 
     get_dists(train_gen, FLAGS.data_dir + '/train_tfidf_cosine.npz')
     get_dists(test_gen, FLAGS.data_dir + '/test_tfidf_cosine.npz')
@@ -85,12 +78,12 @@ def compute_fasttext_dists(train_gen_raw, test_gen_raw):
         FLAGS.data_dir + '../vectors/cc.ru.300.bin')
     # model.wv.most_similar('ватт')
 
-    def get_dists(data, fname):
+    def get_dists(gen, fname):
         dists = []
-        for q_terms, d_terms, _ixs in tqdm(zip(data[0], data[1], data[2]), total=len(data[0])):
-            qvecs = [model.wv[term] for term in q_terms if
+        for qdi in gen:
+            qvecs = [model.wv[term] for term in qdi.q_terms if
                      term.isalpha() and len(term) > 2 and term in model.wv]
-            dvecs = [model.wv[term] for term in d_terms if
+            dvecs = [model.wv[term] for term in qdi.d_terms if
                      term.isalpha() and len(term) > 2 and term in model.wv]
             qmean = np.mean(qvecs, axis=0)
             dmean = np.mean(dvecs, axis=0)
@@ -101,18 +94,19 @@ def compute_fasttext_dists(train_gen_raw, test_gen_raw):
                     np.median(mins), np.std(mins)
             else:
                 mean, median, std = -1, -1, -1
-            dists.append(list(_ixs[:3]) + [cosine(qmean, dmean),
-                                           mean, median, std])
-        np.savez(fname, dists=dists)
+            dists.append(list(qdi.ixs[:3]) + [cosine(qmean, dmean),
+                                              mean, median, std])
+        dists = np.array(dists)
+        dists[:, :3] = dists[:, :3].astype(np.int32)
+        np.savez(fname, vals=dists)
 
     get_dists(train_gen_raw, FLAGS.data_dir + '/train_fasttext_cosine.npz')
     get_dists(test_gen_raw, FLAGS.data_dir + '/test_fasttext_cosine.npz')
 
 
 def load_sim_ftrs():
-    def dists_from_numpy(sim_ftrs, mname, tag):
-        filename = FLAGS.data_dir + '/%s_%s_cosine.npz' % (tag, mname)
-        df = np.load(filename)['dists']
+    def dists_from_numpy(sim_ftrs, mname, filename):
+        df = np.load(filename)['vals']
         df = pd.DataFrame(df)
         columns = ['qid', 'synid', 'fid']
         columns += ['%s%d' % (mname, i) for i in range(df.shape[1]-3)]
@@ -120,8 +114,7 @@ def load_sim_ftrs():
         df.drop_duplicates(['qid', 'synid', 'fid'], inplace=True)
         return sim_ftrs.merge(df, on=['qid', 'synid', 'fid'])
 
-    def load_one(train=True):
-        tag = 'train' if train else 'test'
+    def load_one(tag='train'):
         filename = FLAGS.data_dir + '/%s_sim_ftrs.h5' % tag
         if not os.path.isfile(filename):
             return
@@ -131,14 +124,17 @@ def load_sim_ftrs():
 
         sim_ftrs.drop_duplicates(['qid', 'synid', 'fid'], inplace=True)
         if FLAGS.tfidf:
-            sim_ftrs = dists_from_numpy(sim_ftrs, 'tfidf', tag)
+            filename = FLAGS.data_dir + '/%s_tfidf_cosine.npz' % (tag)
+            sim_ftrs = dists_from_numpy(sim_ftrs, 'tfidf', filename)
         if FLAGS.fasttext:
-            sim_ftrs = dists_from_numpy(sim_ftrs, 'fasttext', tag)
+            filename = FLAGS.data_dir + '/%s_fasttext_cosine.npz' % (tag)
+            sim_ftrs = dists_from_numpy(sim_ftrs, 'fasttext', filename)
+
         sim_ftrs.fillna(-1, inplace=True)
         return sim_ftrs
 
-    test_sim_ftrs = load_one(False)
-    train_sim_ftrs = load_one(True)
+    test_sim_ftrs = load_one('test')
+    train_sim_ftrs = load_one('train')
 
     return train_sim_ftrs, test_sim_ftrs
 
