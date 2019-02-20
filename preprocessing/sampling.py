@@ -110,8 +110,6 @@ def query_one(id2brand, et):
         bname = id2brand[bid]['name']
 
     if not FLAGS.for_test:
-        # too long, need optimize - prefetch all mets before quering
-        # use shared memory
         met = mdb.etalons.find_one(
             {'_id': et['srcId']}, projection=['name', 'synonyms'])
         msyns = ' '.join([s['name'] for s in met.get('synonyms', [])])
@@ -137,8 +135,9 @@ def query_one(id2brand, et):
         if len(found):
             samples += sample_one(found, et, syn['id'])
 
-        rec = get_position_record(found, et, met['name'])
-        positions.append([et['id'], curname, bname] + rec)
+        if not FLAGS.for_test:
+            rec = get_position_record(found, et, met['name'])
+            positions.append([et['id'], curname, bname] + rec)
 
     return samples, positions
 
