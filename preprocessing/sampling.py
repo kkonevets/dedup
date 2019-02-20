@@ -100,40 +100,33 @@ def sample_one(found, et, synid):
 
 
 def query_one(id2brand, et):
-    client = MongoClient(FLAGS.mongo_host)
-    mdb = client[FLAGS.release_db]
-
     et['id'] = et.pop('_id')
     bid = et.get('brandId')
-    bname = ''
-    if bid:
-        bname = id2brand[bid]['name']
+    bname = id2brand[bid]['name'] if bid else ''
+    samples, positions = [], []
 
     if not FLAGS.for_test:
+        client = MongoClient(FLAGS.mongo_host)
+        mdb = client[FLAGS.release_db]
         met = mdb.etalons.find_one(
-            {'_id': et['srcId']}, projection=['name', 'synonyms'])
-        msyns = ' '.join([s['name'] for s in met.get('synonyms', [])])
-        metstr = met['name'] + ' ' + msyns
-        msplited = set(tools.prog_with_digits.sub(' ', metstr).lower().split())
-    else:
-        msplited = set()
+            {'_id': et['srcId']}, projection=['name'])
 
-    samples, positions = [], []
-    for syn in et.get('synonyms', []):
-        curname = syn['name'] + ' ' + bname
-        splited = tools.prog_with_digits.sub(' ', curname).lower().split()
+    def gen_names():
+        if FLAGS.for_test:
+            yield et['name'], None
+        else:
+            for syn in et.get('synonyms', []):
+                yield syn['name'], syn['id']
 
-        common = msplited.intersection(splited)
-        if (not FLAGS.for_test and common == set()) or len(splited) <= 2:
-            continue
-
+    for curname, sid in gen_names():
+        curname += ' ' + bname
         curname = tools.normalize(curname)
         if curname.strip() == '':
             continue
-        found = query_solr(curname, FLAGS.nrows)
 
+        found = query_solr(curname, FLAGS.nrows)
         if len(found):
-            samples += sample_one(found, et, syn['id'])
+            samples += sample_one(found, et, sid)
 
         if not FLAGS.for_test:
             rec = get_position_record(found, et, met['name'])
@@ -200,7 +193,7 @@ def solr_sample(elements):
             yield et
 
     # nworkers = mp.cpu_count()
-    with mp.Pool(30) as p:  # maxtasksperchild=5000
+    with mp.Pool(20) as p:  # maxtasksperchild=5000
         with tqdm(total=len(elements)) as pbar:
             # for samps, poss in tqdm(map(wraper, do_iterate(db, elements))):
             for samps, poss in tqdm(p.imap_unordered(wraper, do_iterate(db, elements))):
