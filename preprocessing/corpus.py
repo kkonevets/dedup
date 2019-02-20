@@ -60,23 +60,28 @@ def make_corpus():
 
     for et in tqdm(ets, total=total):
         text = tools.constitute_text(et['name'], et, mid2brand, use_syns=True)
-        corpus.append((None, et['_id'], None,
+        corpus.append((None, None, et['_id'], None,
                        tools.normalize(text, translit=translit)))
 
     ###############################################################
 
-    sid2et = {s['id']: (s['name'], e) for e in db.etalons.find({})
-              for s in e.get('synonyms', [])}
+    subdf = samples[['qid', 'synid', 'train']].drop_duplicates()
+    qids = subdf['qid'].unique().tolist()
+    id2et = {et['_id']: et for et in db.etalons.find({'_id': {'$in': qids}})}
+    for qid, sid, train in tqdm(subdf.values):
+        et = id2et[qid]
+        if pd.isna(sid):
+            name = et['name']
+        else:
+            name = next((s['name'] for s in et.get('synonyms')
+                         if s['id'] == sid))
 
-    subdf = samples[['synid', 'train']].drop_duplicates()
-    for _id, train in tqdm(subdf.values):
-        name, et = sid2et[_id]
         text = tools.constitute_text(name, et, id2brand, use_syns=False)
-        corpus.append((_id, None, train,
+        corpus.append((qid, sid, None, train,
                        tools.normalize(text, translit=translit)))
 
     corpus = np.array(corpus)
-    columns = ['synid', 'fid', 'train', 'text']
+    columns = ['qid', 'synid', 'fid', 'train', 'text']
     np.savez(FLAGS.data_dir + '/corpus.npz', samples=corpus, columns=columns)
 
     return corpus, columns

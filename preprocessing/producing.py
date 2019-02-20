@@ -1,4 +1,5 @@
 import tools
+import pandas as pd
 from dataclasses import dataclass
 
 
@@ -37,9 +38,12 @@ class Producer:
         return id2text
 
     def gen_data(self, cur_samples):
-        fid2text, sid2text = self.fid2text, self.sid2text
+        qid2text, fid2text, sid2text = self.qid2text, self.fid2text, self.sid2text
         for row in tools.tqdm(cur_samples.itertuples(), total=len(cur_samples)):
-            q_terms = sid2text[row.synid].split()
+            if pd.notna(row.synid):
+                q_terms = sid2text[row.synid].split()
+            else:
+                q_terms = qid2text[row.qid].split()
             d_terms = fid2text[row.fid].split()
 
             if row.target == 0 and ' '.join(d_terms) == ' '.join(q_terms):
@@ -59,8 +63,9 @@ class Producer:
         samples = tools.load_samples(self.data_dir + '/samples.npz')
         corpus = tools.load_samples(self.data_dir + '/corpus.npz')
 
+        qid2text = self.get_id2text(corpus, 'qid', samples['qid'].unique())
         sid2text = self.get_id2text(corpus, 'synid', samples['synid'].unique())
         fid2text = self.get_id2text(corpus, 'fid', samples['fid'].unique())
 
-        self.samples, self.sid2text, self.fid2text = \
-            samples, sid2text, fid2text
+        self.samples, self.qid2text, self.sid2text, self.fid2text = \
+            samples, qid2text, sid2text, fid2text

@@ -66,7 +66,6 @@ def compute_tfidf_dists(train_gen, test_gen):
         dvecs = model.transform(ds)
 
         dists = paired_cosine_distances(qvecs, dvecs)
-        ixs = np.array(ixs, dtype=np.int32)
         np.savez(fname, vals=np.hstack([ixs, np.array([dists]).T]))
 
     get_dists(train_gen, FLAGS.data_dir + '/train_tfidf_cosine.npz')
