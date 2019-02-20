@@ -11,12 +11,13 @@ export PYTHONPATH="$PYTHONPATH:$PWD"
 printf "${RED}sampling\n${NC}"
 python3 preprocessing/sampling.py \
 --data_dir=../data/dedup/ \
---nrows=50 \
+--nrows=5
 # --for_test
 
 printf "${RED}corpus\n${NC}"
 python3 preprocessing/corpus.py \
 --data_dir=../data/dedup/ \
+--build_tfidf
 
 printf "${RED}coping to ${NC}$dst\n"
 rsync -amvzP ../data/dedup/* $dst:/home/ubuntu/data/dedup

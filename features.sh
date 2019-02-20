@@ -16,7 +16,10 @@ printf "${RED}dataset\n${NC}"
 $interpreter preprocessing/dataset.py \
 --data_dir=../data/dedup/ \
 --build_features \
+--build_tfidf \
+--tfidf
 
 printf "${RED}simboost\n${NC}"
 $interpreter simboost.py \
 --data_dir=../data/dedup/ \
+--tfidf 

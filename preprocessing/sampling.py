@@ -94,7 +94,7 @@ def sample_one(found, et, synid):
 
     if df['target'].max() == 0:
         # target is not in the TOP
-        values.insert(0, [et['id'], synid, et['srcId'], 0, 1, -1])
+        values[0] = [et['id'], synid, et['srcId'], 0, 1, -1]
 
     return values
 
@@ -212,7 +212,7 @@ def solr_sample(elements):
     samples.columns = SAMPLE_COLUMNS  # + train
 
     if not FLAGS.for_test:
-        save_positions(positions)
+        # save_positions(positions)
         qids_train, qids_test = train_test_split(
             samples['qid'].unique(), test_size=0.2, random_state=11)
         samples['train'] = samples['qid'].isin(qids_train).astype(int)
