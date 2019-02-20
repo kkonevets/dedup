@@ -93,7 +93,7 @@ def sample_one(found, et, synid):
         return values
 
     if df['target'].max() == 0:
-        # target is not in the TOP
+        # target is not in the TOP N
         values[0] = [et['id'], synid, et['srcId'], 0, 1, -1]
 
     return values
