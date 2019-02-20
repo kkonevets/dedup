@@ -43,9 +43,7 @@ def query_solr(text, rows=1):
 
 
 def save_positions(positions):
-    columns = ['et_id', 'et_name', 'et_brand',
-               'el_id', 'el_name', 'el_brand', 'i']
-
+    columns = ['et_id', 'synid', 'el_id',  'i']
     positions = [{k: pi for k, pi in zip(columns, p)} for p in positions]
 
     client = MongoClient(FLAGS.mongo_host)
@@ -57,18 +55,18 @@ def save_positions(positions):
     scoring.plot_topn_curves([positions], FLAGS.data_dir + '/cumsum.pdf')
 
 
-def get_position_record(found, et, mname):
+def get_position_record(found, et):
     bcs = set([int(c) for c in et['barcodes']])
     for i, el in enumerate(found):
         curbcs = [int(c) for c in el.get('barcodes', [])]
         if len(bcs.intersection(curbcs)):
-            rec = [int(el['id']), el.get('name', ''), el.get('brand', ''), i]
+            rec = [int(el['id']), i]
             break
     else:
         if len(found) == 0:
-            rec = [None, mname, '', -1]
+            rec = [None, -1]
         else:
-            rec = [et['srcId'], mname, '', -2]
+            rec = [et['srcId'], -2]
 
     return rec
 
@@ -105,12 +103,6 @@ def query_one(id2brand, et):
     bname = id2brand[bid]['name'] if bid else ''
     samples, positions = [], []
 
-    if not FLAGS.for_test:
-        client = MongoClient(FLAGS.mongo_host)
-        mdb = client[FLAGS.release_db]
-        met = mdb.etalons.find_one(
-            {'_id': et['srcId']}, projection=['name'])
-
     def gen_names():
         if FLAGS.for_test:
             yield et['name'], None
@@ -129,26 +121,25 @@ def query_one(id2brand, et):
             samples += sample_one(found, et, sid)
 
         if not FLAGS.for_test:
-            rec = get_position_record(found, et, met['name'])
-            positions.append([et['id'], curname, bname] + rec)
+            rec = get_position_record(found, et)
+            positions.append([et['id'], sid] + rec)
 
     return samples, positions
 
 
-def get_id2bc(dbname):
-    client = MongoClient(FLAGS.mongo_host)
-    db = client[dbname]
-    total = db.etalons.count_documents({})
-    id2bc = []
-    for et in tqdm(db.etalons.find({}), total=total):
-        for bc in et.get('barcodes', []):
-            id2bc.append((et['_id'], int(bc)))
-
-    df = pd.DataFrame(id2bc)
-    return df
-
-
 def get_existing(anew=False):
+    def get_id2bc(dbname):
+        client = MongoClient(FLAGS.mongo_host)
+        db = client[dbname]
+        total = db.etalons.count_documents({})
+        id2bc = []
+        for et in tqdm(db.etalons.find({}), total=total):
+            for bc in et.get('barcodes', []):
+                id2bc.append((et['_id'], int(bc)))
+
+        df = pd.DataFrame(id2bc)
+        return df
+
     client = MongoClient(FLAGS.mongo_host)
     db = client['cache']
     cache_name = '%s_existing' % FLAGS.feed_db
