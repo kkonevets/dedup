@@ -69,6 +69,9 @@ stemmer = SnowballStemmer("russian", ignore_stopwords=True)
 
 
 def normalize(sent, stem=False, translit=True):
+    """
+    This works good but slow, redo
+    """
     tokens = normalize_v2(sent, translit)
     if stem:
         tokens = (stemmer.stem(t) for t in tokens)
