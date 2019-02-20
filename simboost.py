@@ -156,12 +156,12 @@ def test():
     ftest['prob'] = probs
     sub = ftest[['qid', 'synid', 'fid', 'score', 'ix', 'prob']]
 
-    maxs = sub[['synid', 'prob']].groupby('synid').max()['prob']
+    maxs = sub[['qid', 'prob']].groupby('qid').max()['prob']
     N = len(sub['ix'].unique())
     ax = maxs.hist()
     fig = ax.get_figure()
     ax.set_xlabel("excluded probs")
-    ax.set_ylabel("distribution")
+    ax.set_ylabel("frequency")
     fig.savefig('../data/dedup/notexisting_probs.pdf')
 
     # sub[sub['prob'] > 0.9].to_excel('../data/dedup/samples_look.xlsx', index=False)
