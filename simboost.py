@@ -145,6 +145,10 @@ def build_classifier():
     # ftest['prob'] = test_probs
     # ftest[INFO_COLUMNS+['score', 'prob']].sort_values(['qid', 'synid', 'fid', 'target'])
 
+    scoring.examples_to_view(
+        ftest, test_probs, FLAGS.feed_db, FLAGS.release_db)
+    scoring.plot_binary_prob_freqs(dtest.get_label(), test_probs)
+
 
 def test():
     xgb_clr = joblib.load('../data/dedup/xgb_clr.model')
@@ -176,7 +180,7 @@ def main(argv):
 if __name__ == "__main__":
     flags.mark_flag_as_required("data_dir")
 
-    if False:
+    if True:
         sys.argv += ['--data_dir=../data/dedup/', '--tfidf']
         FLAGS(sys.argv)
     else:

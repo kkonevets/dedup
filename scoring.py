@@ -6,9 +6,29 @@ from sklearn.metrics import average_precision_score
 import numpy as np
 import pandas as pd
 import tools
+import seaborn as sns
 from collections import Counter
+from preprocessing.letor import INFO_COLUMNS
+import matplotlib.pyplot as plt
 
 matplotlib.use('agg')
+
+
+def plot_binary_prob_freqs(y_test, probs):
+    ones = probs[np.where(y_test == 1)]
+    zeros = probs[np.where(y_test == 0)]
+
+    plt.clf()
+
+    ax = sns.distplot(ones, label='1', norm_hist=True)
+    sns.distplot(zeros, label='0', norm_hist=True, ax=ax)
+    ax.set_xlabel('prob')
+    ax.set_ylabel('density')
+    ax.set_ylim([0.0, 15])
+    ax.legend(loc="best")
+
+    fig = ax.get_figure()
+    fig.savefig('../data/dedup/prob_freqs.pdf', dpi=400)
 
 
 def plot_topn_curves(positions_list, fname, scale=1, labels=None, title=None):
@@ -17,7 +37,6 @@ def plot_topn_curves(positions_list, fname, scale=1, labels=None, title=None):
     else:
         labels = [None]*len(positions_list)
 
-    import matplotlib.pyplot as plt
     plt.clf()
 
     csums = []
@@ -41,7 +60,7 @@ def plot_topn_curves(positions_list, fname, scale=1, labels=None, title=None):
     df *= scale
 
     title = title if title else 'found in top N'
-    ax = df.plot(title=title, grid=True)
+    ax = df.plot(title=title, grid=True, xlim=(-1, df.index.max()))
     # xtics = list(df.index)[::2]
     # if xtics[-1] != df.index[-1]:
     #     xtics.append(df.index[-1])
@@ -191,3 +210,55 @@ def ndcg_at_k(r, k, method=1):
     if not dcg_max:
         return 0.
     return dcg_at_k(r, k, method) / dcg_max
+
+
+def examples_to_view(ftest, test_probs, feed_db, release_db):
+    from pymongo import MongoClient
+
+    client = MongoClient(tools.ml_HOST)
+    db = client[feed_db]
+    mdb = client[release_db]
+
+    columns = INFO_COLUMNS + ['prob']
+    ftest['prob'] = test_probs
+
+    cond = (test_probs > 0.9) & (ftest['target'] == 0)
+    df1 = ftest[cond][columns].copy()
+
+    cond = (test_probs < 0.1) & (ftest['target'] == 1)
+    df2 = ftest[cond][columns].copy()
+
+    qids = set(df1['qid'].unique())
+    qids.update(df2['qid'].unique())
+    fids = set(df1['fid'].unique())
+    fids.update(df2['fid'].unique())
+
+    qid2et = {et['_id']: et for et in db.etalons.find(
+        {'_id': {'$in': list(qids)}})}
+    fid2et = {et['_id']: et for et in mdb.etalons.find(
+        {'_id': {'$in': list(fids)}})}
+    id2brand = {c['_id']: c for c in db.brands.find({}, projection=['name'])}
+    mid2brand = {c['_id']: c for c in mdb.brands.find({}, projection=['name'])}
+
+    for df in (df1, df2):
+        qs, ds = [], []
+        for row in df.itertuples():
+            et = qid2et[row.qid]
+            name = next((s['name'] for s in et.get('synonyms')
+                         if s['id'] == row.synid))
+            q = tools.constitute_text(
+                name, et, id2brand, use_syns=False)
+
+            met = fid2et[row.fid]
+            d = tools.constitute_text(
+                met['name'], met, mid2brand, use_syns=True)
+            qs.append(q)
+            ds.append(d)
+        df['q'] = qs
+        df['d'] = ds
+        df = df[columns + ['q', 'd']]
+
+    df1.sort_values('prob', ascending=False, inplace=True)
+    df2.sort_values('prob', ascending=True, inplace=True)
+    df1.to_excel('../data/dedup/typeI.xlsx', index=False)
+    df2.to_excel('../data/dedup/typeII.xlsx', index=False)

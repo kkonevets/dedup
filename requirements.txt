@@ -1,5 +1,7 @@
 gensim
 cython
+seaborn
+openpyxl
 paramiko
 absl-py>=0.6.1
 abydos>=0.3.6
