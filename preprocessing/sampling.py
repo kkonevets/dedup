@@ -220,7 +220,7 @@ def main(argv):
         not_existing = db.etalons.find(
             {'_id': {'$nin': [el['_id'] for el in existing]}},
             projection=['_id'])
-        not_existing = [el for el in not_existing]
+        not_existing = [el for el in not_existing][:50000]
         solr_sample(not_existing)
     else:
         solr_sample(existing)
