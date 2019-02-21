@@ -34,7 +34,7 @@ hf['ftrs'].attrs['columns']
 hf.close()
 
 
-l = [1, 244, 3]
+l = [1, 244, 3, 44]
 for i in l:
     if i > 20:
         break
