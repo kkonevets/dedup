@@ -227,10 +227,11 @@ def main(argv):
 
 
 if __name__ == '__main__':
+    import __main__
     flags.mark_flag_as_required("data_dir")
 
-    if False:
+    if hasattr(__main__, '__file__'):
+        app.run(main)
+    else:
         sys.argv += ['--data_dir=../data/dedup/']
         FLAGS(sys.argv)
-    else:
-        app.run(main)
