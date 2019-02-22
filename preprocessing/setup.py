@@ -4,12 +4,15 @@ from numpy import get_include
 from distutils.extension import Extension
 
 ext_modules = [
-    Extension('dedup.textsim',
-              sources=["preprocessing/textsim.pyx"],
+    Extension('cytextsim',
+              sources=["preprocessing/cytextsim.pyx"],
+              include_dirs=[get_include()]),
+    Extension('tokenizer',
+              sources=["preprocessing/tokenizer.pyx"],
               include_dirs=[get_include()])
 ]
 
 setup(
-    name='textsim',
+    name='preprocessing',
     ext_modules=cythonize(ext_modules)
 )

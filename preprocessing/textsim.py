@@ -5,7 +5,7 @@ import time
 from tqdm import tqdm
 
 from pprint import pprint
-from dedup.textsim import get_sim_features, func_map
+from cytextsim import get_sim_features, func_map
 import os
 import multiprocessing as mp
 import h5py
