@@ -21,6 +21,7 @@ pkg
 bin
 preprocessing/*.cpp
 preprocessing/*.c
+preprocessing/*.html
 
 cmake-build*
 .idea
