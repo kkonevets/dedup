@@ -6,8 +6,7 @@ from distutils.extension import Extension
 ext_modules = [
     Extension('dedup.textsim',
               sources=["preprocessing/textsim.pyx"],
-              include_dirs=[get_include()],
-              language="c++")
+              include_dirs=[get_include()])
 ]
 
 setup(

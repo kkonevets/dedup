@@ -1,3 +1,4 @@
+import sklearn
 import io
 import json
 from tqdm import tqdm
@@ -43,3 +44,5 @@ else:
         print('l==0')
     else:
         print('else')
+
+sklearn.feature_extraction.text.TfidfVectorizer
