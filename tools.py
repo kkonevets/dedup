@@ -44,7 +44,6 @@ flags.DEFINE_integer("nrows", 100, "The TOP number of rows to query")
 
 chars = string.punctuation
 chars = chars.replace('%', '').replace('_', '').replace('@', '')
-punct_tt = str.maketrans(dict.fromkeys(chars, ' '))
 prog = re.compile("[\\W\\d]", re.UNICODE)
 prog_with_digits = re.compile("[\\W]", re.UNICODE)
 
