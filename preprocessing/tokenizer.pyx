@@ -96,7 +96,8 @@ cpdef tokenize(s):
         for w_prev, w_next in zip(splited[:-1], splited[1:]):
             if w_prev.isnumeric():
                 w_next = unit_lookup.get(w_next, w_next) 
-            temp.append(w_next)
+            if len(w_next) > 1:
+                temp.append(w_next)
 
     joined = ' '.join(temp)
     joined = trans.transliterate(joined)
