@@ -11,17 +11,34 @@ from icu import Transliterator
 trans = Transliterator.createInstance('Latin-Cyrillic')
 
 cdef:
-    frozenset substitute = frozenset(u'ъ!"#$&\'()+-/:;<=>?@[\\]^_`{|}~')
-    # '%*,.'
+    frozenset substitute = frozenset(u'ъ*!"#$&\'()+-/:;<=>?@[\\]^_`{|}~')
+    # '%,.'
+    dict unit_lookup = {
+        'г': 'грамм', 'грам': 'грамм', 'гр': 'грамм', 'gr': 'грамм', 'g': 'грамм',
+        'ml': 'мл', 'милл': 'мл', 'млитр': 'мл', 'млтр': 'мл',
+        'ш': 'шт',
+        'тон': 'тонна', 'тн': 'тонна', 'тонн': 'тонна', 'т': 'тонна',
+        'л': 'литр', 'лит': 'литр',
+        'kg': 'кг',
+        'mm': 'мм', 'cm': 'см', 'м': 'метр',
+        'gb': 'гб', 'mb': 'мб', 
+        '№': 'номер',
+        'ват': 'ватт', 'вт': 'ватт', 'w': 'ватт', 'в': 'вольт', 'v': 'вольт',
+        'а': 'ампер', 'a': 'ампер', 'hz': 'герц', 'гц': 'герц'}
+
+    dict number_lookup = {
+        '1': 'один', '2': 'два', '3': 'три', '4': 'четыре',
+        '5': 'пять', '6': 'шесть', '7': 'семь', '8': 'восемь',
+        '9': 'девять'
+    }
 
 cpdef tokenize(s):
     cdef:
         unicode ustring = <unicode>s
         Py_UCS4 prev, c 
-        unsigned int index = 0, slen = len(s)
         array.array out = array.array('u')
         unsigned int ordinal
-        bool isnum = False, isdim = False
+        bool isnum = False
         bool islat = False, iscyr = False
 
     for c in ustring:
@@ -46,22 +63,42 @@ cpdef tokenize(s):
             c = '.'
             isnum = True
         else:
-            if isnum and c != '%':
+            if isnum and prev == '.':
+                prev = ' '
+                out[-1] = ' '
+            elif isnum and c != '%':
                 out.append(' ')
             elif c == '.' or c == ',':
                 c = ' '
+            elif prev == '%':
+                out.append(' ')
             isnum = False
 
         if c == 'ё': c = 'е'
         if c == 'й': c = 'и'
 
         # detect dimentions 44x33 or 44*33
-        # transliterate
 
         out.append(c)
         prev = c
-        islat_prev = islat
-        scyr_prev = iscyr
-        index += 1
 
-    return trans.transliterate(out.tounicode())
+    cdef:
+        list splited = out.tounicode().split()
+        unsigned int lsp = len(splited)
+        unicode w_prev, w_next
+        list temp
+
+    if lsp == 0:
+        return ''
+
+    temp = [splited[0]]
+    if len(splited) > 1:
+        for w_prev, w_next in zip(splited[:-1], splited[1:]):
+            if w_prev.isnumeric():
+                w_next = unit_lookup.get(w_next, w_next) 
+            temp.append(w_next)
+
+    joined = ' '.join(temp)
+    joined = trans.transliterate(joined)
+
+    return joined
