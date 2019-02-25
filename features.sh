@@ -19,7 +19,7 @@ $interpreter preprocessing/dataset.py \
 --build_tfidf \
 --tfidf
 
-# printf "${RED}simboost\n${NC}"
-# $interpreter simboost.py \
-# --data_dir=../data/dedup/ \
-# --tfidf 
+printf "${RED}simboost\n${NC}"
+$interpreter simboost.py \
+--data_dir=../data/dedup/ \
+--tfidf 

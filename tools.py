@@ -14,6 +14,7 @@ from nltk.stem.snowball import SnowballStemmer
 import cyrtranslit
 import paramiko
 import time
+import itertools
 from sklearn.externals import joblib
 from pprint import pprint
 from tqdm import tqdm
@@ -44,6 +45,7 @@ flags.DEFINE_integer("nrows", 100, "The TOP number of rows to query")
 
 chars = string.punctuation
 chars = chars.replace('%', '').replace('_', '').replace('@', '')
+punct_tt = str.maketrans(dict.fromkeys(chars, ' '))
 prog = re.compile("[\\W\\d]", re.UNICODE)
 prog_with_digits = re.compile("[\\W]", re.UNICODE)
 
@@ -136,6 +138,13 @@ def normalize_v2(sent, translit=False):
     tmp = sent.translate(TransTable).lower()
     tokens = (proceed_token(t, translit) for t in wt.tokenize(tmp, False))
     return tokens
+
+
+def grouper(iterable, n, fillvalue=None):
+    """Collect data into fixed-length chunks or blocks"""
+    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
+    args = [iter(iterable)] * n
+    return itertools.zip_longest(*args, fillvalue=fillvalue)
 
 
 def current_dir():

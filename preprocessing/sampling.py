@@ -13,15 +13,12 @@ from absl import app
 from sklearn.model_selection import train_test_split
 import pymongo
 from pymongo import MongoClient
-from functools import partial
 import re
 import os
 import pandas as pd
 import numpy as np
 from urllib.parse import quote
-import multiprocessing as mp
 from tqdm import tqdm
-import urllib
 import json
 import tools
 import sys
@@ -29,20 +26,20 @@ import scoring
 import traceback
 import aiohttp
 import asyncio
+import itertools
 
 FLAGS = tools.FLAGS
 SAMPLE_COLUMNS = ['qid', 'synid', 'fid', 'score', 'target', 'ix']  # , 'train'
 
 
-def query_solr(text, rows=1):
+async def query_solr(session, text, rows=1):
     quoted = quote('name:(%s)^5 || synonyms:(%s)' % (text, text))
     q = 'http://%s:8983/solr/nom_core/select?' \
         'q=%s&rows=%d&fl=*,score' % (FLAGS.solr_host, quoted, rows)
-    with urllib.request.urlopen(q) as response:
-        data = response.read()
-    docs = json.loads(data)['response']['docs']
+    async with session.get(q) as response:
+        res = await response.text()
     # print(traceback.format_exc())
-    return docs
+    return res
 
 
 def save_positions(positions):
@@ -103,11 +100,8 @@ def sample_one(found, et, synid):
     return df
 
 
-def query_one(id2brand, et):
+async def produce(queue, session, bname, et):
     et['id'] = et.pop('_id')
-    bid = et.get('brandId')
-    bname = id2brand[bid]['name'] if bid else ''
-    samples, positions = [], []
 
     def gen_names():
         if FLAGS.for_test:
@@ -121,8 +115,15 @@ def query_one(id2brand, et):
         curname = tools.normalize(curname)
         if curname.strip() == '':
             continue
+        res = await query_solr(session, curname, FLAGS.nrows)
+        await queue.put((et, sid, res))
 
-        found = query_solr(curname, FLAGS.nrows)
+
+async def consume(queue, samples, positions):
+    i = 0
+    while True:
+        et, sid, res = await queue.get()
+        found = json.loads(res)['response']['docs']
         if len(found):
             samples += sample_one(found, et, sid)
 
@@ -130,7 +131,62 @@ def query_one(id2brand, et):
             rec = get_position_record(found, et)
             positions.append([et['id'], sid] + rec)
 
+        queue.task_done()
+        i += 1
+        if i % 2000 == 0:
+            print(i)
+
+
+async def query_all(elements):
+    client = MongoClient(FLAGS.mongo_host)
+    db = client[FLAGS.feed_db]
+
+    id2brand = {c['_id']: c for c in db.brands.find({}, projection=['name'])}
+    id2el = {el['_id']: el for el in elements}
+    ets = db.etalons.find({'_id': {'$in': list(id2el)}})
+
+    queue = asyncio.Queue(maxsize=5)
+
+    samples, positions = [], []
+    consumer = asyncio.create_task(consume(queue, samples, positions))
+    producers = []
+
+    timeout = aiohttp.ClientTimeout(total=30*60)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        for et in ets:
+            if FLAGS.for_test:
+                et['srcId'] = None
+            else:
+                el = id2el[et['_id']]
+                et['srcId'] = el['_id_release']
+
+            bid = et.get('brandId')
+            bname = id2brand[bid]['name'] if bid else ''
+            task = asyncio.create_task(produce(queue, session, bname, et))
+            producers.append(task)
+
+        await asyncio.wait(producers)
+        await queue.join()
+        consumer.cancel()
+
     return samples, positions
+
+
+def solr_sample(elements):
+    samples, positions = asyncio.run(query_all(elements))
+
+    samples = pd.DataFrame(samples)
+    samples.columns = SAMPLE_COLUMNS  # + train
+
+    if not FLAGS.for_test:
+        # save_positions(positions)
+        qids_train, qids_test = train_test_split(
+            samples['qid'].unique(), test_size=0.2, random_state=11)
+        samples['train'] = samples['qid'].isin(qids_train).astype(int)
+
+    X_samples = samples.values.astype(np.float32)
+    np.savez(FLAGS.data_dir + '/samples.npz',
+             samples=X_samples, columns=samples.columns)
 
 
 def get_existing(anew=False):
@@ -171,47 +227,6 @@ def get_existing(anew=False):
         return bulk
 
 
-def solr_sample(elements):
-    client = MongoClient(FLAGS.mongo_host)
-    db = client[FLAGS.feed_db]
-
-    id2brand = {c['_id']: c for c in db.brands.find({}, projection=['name'])}
-    positions, samples = [], []
-
-    wraper = partial(query_one, id2brand)
-
-    def do_iterate(db, elements):
-        for el in elements:
-            et = db.etalons.find_one({'_id': el['_id']})
-            if FLAGS.for_test:
-                et['srcId'] = None
-            else:
-                et['srcId'] = el['_id_release']
-            yield et
-
-    # nworkers = mp.cpu_count()
-    with mp.Pool(20) as p:  # maxtasksperchild=5000
-        with tqdm(total=len(elements)) as pbar:
-            for samps, poss in tqdm(map(wraper, do_iterate(db, elements))):
-                # for samps, poss in tqdm(p.imap_unordered(wraper, do_iterate(db, elements))):
-                samples += samps
-                positions += poss
-                pbar.update()
-
-    samples = pd.DataFrame(samples)
-    samples.columns = SAMPLE_COLUMNS  # + train
-
-    if not FLAGS.for_test:
-        # save_positions(positions)
-        qids_train, qids_test = train_test_split(
-            samples['qid'].unique(), test_size=0.2, random_state=11)
-        samples['train'] = samples['qid'].isin(qids_train).astype(int)
-
-    X_samples = samples.values.astype(np.float32)
-    np.savez(FLAGS.data_dir + '/samples.npz',
-             samples=X_samples, columns=samples.columns)
-
-
 def main(argv):
     del argv  # Unused.
 
@@ -219,6 +234,7 @@ def main(argv):
         os.makedirs(FLAGS.data_dir)
 
     existing = get_existing(anew=False)
+    elements = existing
 
     if FLAGS.for_test:
         client = MongoClient(FLAGS.mongo_host)
