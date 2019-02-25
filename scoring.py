@@ -215,7 +215,7 @@ def ndcg_at_k(r, k, method=1):
 def examples_to_view(ftest, test_probs, feed_db, release_db):
     from pymongo import MongoClient
 
-    client = MongoClient(tools.ml_HOST)
+    client = MongoClient(tools.c_HOST)
     db = client[feed_db]
     mdb = client[release_db]
 

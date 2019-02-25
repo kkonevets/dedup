@@ -133,7 +133,7 @@ async def consume(queue, samples, positions):
 
         queue.task_done()
         i += 1
-        if i % 2000 == 0:
+        if i % 5000 == 0:
             print(i)
 
 
@@ -151,7 +151,7 @@ async def query_all(elements):
     consumer = asyncio.create_task(consume(queue, samples, positions))
     producers = []
 
-    timeout = aiohttp.ClientTimeout(total=30*60)
+    timeout = aiohttp.ClientTimeout(total=30*60)  # 30 mins in keep alive mode
     async with aiohttp.ClientSession(timeout=timeout) as session:
         for et in ets:
             if FLAGS.for_test:
@@ -234,7 +234,7 @@ def main(argv):
         os.makedirs(FLAGS.data_dir)
 
     existing = get_existing(anew=False)
-    elements = existing
+    # elements = existing
 
     if FLAGS.for_test:
         client = MongoClient(FLAGS.mongo_host)
