@@ -27,6 +27,8 @@ import tools
 import sys
 import scoring
 import traceback
+import aiohttp
+import asyncio
 
 FLAGS = tools.FLAGS
 SAMPLE_COLUMNS = ['qid', 'synid', 'fid', 'score', 'target', 'ix']  # , 'train'
@@ -36,8 +38,9 @@ def query_solr(text, rows=1):
     quoted = quote('name:(%s)^5 || synonyms:(%s)' % (text, text))
     q = 'http://%s:8983/solr/nom_core/select?' \
         'q=%s&rows=%d&fl=*,score' % (FLAGS.solr_host, quoted, rows)
-    r = urllib.request.urlopen(q).read()
-    docs = json.loads(r)['response']['docs']
+    with urllib.request.urlopen(q) as response:
+        data = response.read()
+    docs = json.loads(data)['response']['docs']
     # print(traceback.format_exc())
     return docs
 
@@ -72,29 +75,32 @@ def get_position_record(found, et):
 
 
 def sample_one(found, et, synid):
-    df = [(et['id'],
+    df = [[et['id'],
            synid,
            int(el['id']),
            el['score'],
            int(int(el['id']) == et['srcId']),
-           None)
-          for el in found]
-    df = pd.DataFrame.from_records(df)
-    df.columns = SAMPLE_COLUMNS
-    df['ix'] = df.index
+           i]
+          for i, el in enumerate(found)]
+
+    score_ix = SAMPLE_COLUMNS.index('score')
+    target_ix = SAMPLE_COLUMNS.index('target')
 
     # normalize scores
-    df['score'] /= df['score'].sum()
+    score_sum = sum((el[score_ix] for el in df))
+    has_traget = False
+    for row in df:
+        row[score_ix] = row[score_ix]/score_sum
+        has_traget = max(has_traget, row[target_ix] == 1)
 
-    values = df.values.tolist()
     if FLAGS.for_test:
-        return values
+        return df
 
-    if df['target'].max() == 0:
+    if not has_traget:
         # target is not in the TOP N
-        values[0] = [et['id'], synid, et['srcId'], 0, 1, -1]
+        df[0] = [et['id'], synid, et['srcId'], 0, 1, -1]
 
-    return values
+    return df
 
 
 def query_one(id2brand, et):
@@ -186,8 +192,8 @@ def solr_sample(elements):
     # nworkers = mp.cpu_count()
     with mp.Pool(20) as p:  # maxtasksperchild=5000
         with tqdm(total=len(elements)) as pbar:
-            # for samps, poss in tqdm(map(wraper, do_iterate(db, elements))):
-            for samps, poss in tqdm(p.imap_unordered(wraper, do_iterate(db, elements))):
+            for samps, poss in tqdm(map(wraper, do_iterate(db, elements))):
+                # for samps, poss in tqdm(p.imap_unordered(wraper, do_iterate(db, elements))):
                 samples += samps
                 positions += poss
                 pbar.update()
