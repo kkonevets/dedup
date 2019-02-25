@@ -6,7 +6,7 @@ cimport cython
 from cpython cimport array
 import array
 from cpython cimport bool
-from icu import Transliterator 
+from icu import Transliterator
 
 trans = Transliterator.createInstance('Latin-Cyrillic')
 
@@ -92,7 +92,7 @@ cpdef tokenize(s):
         return ''
 
     temp = [splited[0]]
-    if len(splited) > 1:
+    if lsp > 1:
         for w_prev, w_next in zip(splited[:-1], splited[1:]):
             if w_prev.isnumeric():
                 w_next = unit_lookup.get(w_next, w_next) 
