@@ -15,6 +15,7 @@ import cyrtranslit
 import paramiko
 import time
 import itertools
+from collections import OrderedDict
 from pprint import pprint
 from tqdm import tqdm
 from pymongo import MongoClient
@@ -151,13 +152,7 @@ class Updater:
 
 
 def unique_syn(syn):
-    unique = set()
-    res = []
-    for tag in syn.split():
-        if tag not in unique:
-            res.append(tag)
-            unique.update([tag])
-    return ' '.join(res)
+    return ' '.join(list(OrderedDict.fromkeys(syn.split())))
 
 
 def constitute_text(name, et, id2brand, use_syns=False):
@@ -183,15 +178,6 @@ def load_samples(filename, key='samples'):
         return None
     samples.columns = npzfile['columns']
     return samples
-
-
-def scp(host, user, localfile, remotefile):
-    transport = paramiko.Transport((host, 22))
-    transport.connect(username=user, pkey='~/.ssh/id_rsa')
-    sftp = paramiko.SFTPClient.from_transport(transport)
-    sftp.put(localfile, remotefile)
-    sftp.close()
-    transport.close()
 
 
 def feed2mongo(feed, dbname):

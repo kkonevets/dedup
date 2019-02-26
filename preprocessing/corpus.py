@@ -47,7 +47,7 @@ def make_corpus():
     if 'train' not in samples.columns:
         samples['train'] = 0  # test
 
-    translit = not FLAGS.notranslit
+    # translit = not FLAGS.notranslit
 
     ###############################################################
 

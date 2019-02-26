@@ -60,7 +60,7 @@ def plot_topn_curves(positions_list, fname, scale=1, labels=None, title=None):
     df *= scale
 
     title = title if title else 'found in top N'
-    ax = df.plot(title=title, grid=True, xlim=(0, df.index.max()))
+    ax = df.plot(title=title, grid=True, xlim=(-0.5, df.index.max()))
     # xtics = list(df.index)[::2]
     # if xtics[-1] != df.index[-1]:
     #     xtics.append(df.index[-1])
