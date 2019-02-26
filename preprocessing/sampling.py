@@ -145,7 +145,7 @@ async def query_all(elements):
     id2el = {el['_id']: el for el in elements}
     ets = db.etalons.find({'_id': {'$in': list(id2el)}})
 
-    queue = asyncio.Queue(maxsize=5)
+    queue = asyncio.Queue(maxsize=10)
 
     samples, positions = [], []
     consumer = asyncio.create_task(consume(queue, samples, positions))
