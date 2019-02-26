@@ -15,7 +15,6 @@ import cyrtranslit
 import paramiko
 import time
 import itertools
-from sklearn.externals import joblib
 from pprint import pprint
 from tqdm import tqdm
 from pymongo import MongoClient
@@ -84,20 +83,13 @@ def load_master():
 
 def do_pickle(data, fname):
     with open(fname, 'wb') as f:
-        joblib.dump(data, f)
+        pickle.dump(data, f)
 
 
 def do_unpickle(fname):
     with open(fname, 'rb') as f:
-        data = joblib.load(f)
+        data = pickle.load(f)
     return data
-
-
-def del_all_flags(FLAGS):
-    flags_dict = FLAGS._flags()
-    keys_list = [keys for keys in flags_dict]
-    for keys in keys_list:
-        FLAGS.__delattr__(keys)
 
 
 class Updater:

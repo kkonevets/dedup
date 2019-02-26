@@ -9,7 +9,7 @@ dst="ubuntu@10.72.102.67"
 export PYTHONPATH="$PYTHONPATH:$PWD"
 
 printf "${RED}sampling\n${NC}"
-python3 preprocessing/sampling.py \
+time python3 preprocessing/sampling.py \
 --data_dir=../data/dedup/ \
 --nrows=5 \
 # --for_test 
