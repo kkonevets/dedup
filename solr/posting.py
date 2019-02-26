@@ -5,6 +5,8 @@ from tqdm import tqdm
 import re
 import multiprocessing as mp
 from pymongo import MongoClient
+from tokenizer import tokenize
+
 
 client = MongoClient(tools.c_HOST)
 mdb = client['release']
@@ -30,7 +32,7 @@ def clean_et(et, exclude=None):
     for k in keys:
         v = et[k]
         if type(v) == str:
-            et[k] = tools.normalize(v)
+            et[k] = tokenize(v)
 
 
 def proceed_one(et):
@@ -84,10 +86,9 @@ def etalons_to_docs():
                 ets.append(new_et)
                 pbar.update()
 
-    with io.open('../data/solr/release_data.json', 'w', encoding='utf8') as f:
+    with io.open('~/data/solr/release_data.json', 'w', encoding='utf8') as f:
         json.dump(ets, f, ensure_ascii=False)
 
 
 if __name__ == '__main__':
-    pass
-    # etalons_to_docs()
+    etalons_to_docs()

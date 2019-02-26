@@ -16,6 +16,8 @@ from pymongo import MongoClient
 import io
 import sys
 from nltk.corpus import stopwords
+from tokenizer import tokenize
+
 
 FLAGS = tools.FLAGS
 
@@ -61,7 +63,7 @@ def make_corpus():
     for et in tqdm(ets, total=total):
         text = tools.constitute_text(et['name'], et, mid2brand, use_syns=True)
         corpus.append((None, None, et['_id'], None,
-                       tools.normalize(text, translit=translit)))
+                       tokenize(text)))
 
     ###############################################################
 
@@ -78,7 +80,7 @@ def make_corpus():
 
         text = tools.constitute_text(name, et, id2brand, use_syns=False)
         corpus.append((qid, sid, None, train,
-                       tools.normalize(text, translit=translit)))
+                       tokenize(text)))
 
     corpus = np.array(corpus)
     columns = ['qid', 'synid', 'fid', 'train', 'text']

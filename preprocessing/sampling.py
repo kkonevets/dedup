@@ -27,6 +27,7 @@ import traceback
 import aiohttp
 import asyncio
 import itertools
+from tokenizer import tokenize
 
 FLAGS = tools.FLAGS
 SAMPLE_COLUMNS = ['qid', 'synid', 'fid', 'score', 'target', 'ix']  # , 'train'
@@ -112,7 +113,7 @@ async def produce(queue, session, bname, et):
 
     for curname, sid in gen_names():
         curname += ' ' + bname
-        curname = tools.normalize(curname)
+        curname = tokenize(curname)
         if curname.strip() == '':
             continue
         res = await query_solr(session, curname, FLAGS.nrows)
@@ -151,7 +152,7 @@ async def query_all(elements):
     consumer = asyncio.create_task(consume(queue, samples, positions))
     producers = []
 
-    timeout = aiohttp.ClientTimeout(total=30*60)  # 30 mins in keep alive mode
+    timeout = aiohttp.ClientTimeout(total=60*60)  # 60 mins in keep alive mode
     async with aiohttp.ClientSession(timeout=timeout) as session:
         for et in ets:
             if FLAGS.for_test:
