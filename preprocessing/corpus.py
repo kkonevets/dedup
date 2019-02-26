@@ -22,18 +22,6 @@ from tokenizer import tokenize
 FLAGS = tools.FLAGS
 
 
-def get_stop_words():
-    words = set(stopwords.words("russian"))
-    with io.open('./solr/stopwords_ru.txt', encoding='utf8') as f:
-        for l in f:
-            splited = l.split('|')
-            word = splited[0].strip()
-            if word:
-                words.update([word])
-
-    return words
-
-
 def make_corpus():
     client = MongoClient(FLAGS.mongo_host)
     db = client[FLAGS.feed_db]
@@ -94,6 +82,17 @@ def get_tfidf(corpus, columns):
     Build tf-idf model using master data and 1c-Fresh train data
     '''
     from sklearn.feature_extraction.text import TfidfVectorizer
+
+    def get_stop_words():
+        words = set(stopwords.words("russian"))
+        with io.open('./solr/stopwords_ru.txt', encoding='utf8') as f:
+            for l in f:
+                splited = l.split('|')
+                word = splited[0].strip()
+                if word:
+                    words.update([word])
+
+        return words
 
     corpus = pd.DataFrame(corpus)
     corpus.columns = columns
