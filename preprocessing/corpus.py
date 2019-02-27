@@ -51,7 +51,7 @@ def make_corpus():
     for et in tqdm(ets, total=total):
         text = tools.constitute_text(et['name'], et, mid2brand, use_syns=True)
         corpus.append((None, None, et['_id'], None,
-                       tokenize(text)))
+                       tools.normalize(text)))
 
     ###############################################################
 
@@ -68,7 +68,7 @@ def make_corpus():
 
         text = tools.constitute_text(name, et, id2brand, use_syns=False)
         corpus.append((qid, sid, None, train,
-                       tokenize(text)))
+                       tools.normalize(text)))
 
     corpus = np.array(corpus)
     columns = ['qid', 'synid', 'fid', 'train', 'text']

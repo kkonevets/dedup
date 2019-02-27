@@ -6,6 +6,7 @@ import re
 import multiprocessing as mp
 from pymongo import MongoClient
 from tokenizer import tokenize
+from os.path import expanduser
 
 
 client = MongoClient(tools.c_HOST)
@@ -32,7 +33,7 @@ def clean_et(et, exclude=None):
     for k in keys:
         v = et[k]
         if type(v) == str:
-            et[k] = tokenize(v)
+            et[k] = tools.normalize(v)
 
 
 def proceed_one(et):
@@ -86,7 +87,8 @@ def etalons_to_docs():
                 ets.append(new_et)
                 pbar.update()
 
-    with io.open('~/data/solr/release_data.json', 'w', encoding='utf8') as f:
+    home = expanduser("~")
+    with io.open(home+'/data/solr/release_data.json', 'w', encoding='utf8') as f:
         json.dump(ets, f, ensure_ascii=False)
 
 

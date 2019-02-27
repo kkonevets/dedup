@@ -6,9 +6,9 @@ docker stop solonom || true && docker rm solonom || true
 
 schema="http://localhost:8983/solr/nom_core/schema"
 
-cd ../..
+cd ..
 docker run --name solonom -d -p 8983:8983 -t -v $PWD/data/solr:/opt/solr/mydata solr
-cd dedup/solr/
+cd dedup
 docker exec -it --user=solr solonom bin/solr create_core -c nom_core
 
 docker cp stopwords_ru.txt solonom:/opt/solr/server/solr/nom_core/conf/lang/stopwords_ru.txt

@@ -113,7 +113,7 @@ async def produce(queue, session, bname, et):
 
     for curname, sid in gen_names():
         curname += ' ' + bname
-        curname = tokenize(curname)
+        curname = tools.normalize(curname)
         if curname.strip() == '':
             continue
         res = await query_solr(session, curname, FLAGS.nrows)

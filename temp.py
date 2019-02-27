@@ -46,3 +46,9 @@ else:
         print('else')
 
 sklearn.feature_extraction.text.TfidfVectorizer
+
+
+def f():
+    for i in range(10000):
+        tools.normalize(
+            'Кофе в зернах ИНТЕНСО Красный 1 кг Bianca Ferrari Высота: 1 05мм Ширина: 4.5мм Размеры: 5.1 x 4.5 x 1.05мм Тип корпуса: TSSOP Длина: 5.1мм')
