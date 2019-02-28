@@ -113,7 +113,7 @@ async def produce(queue, session, bname, et):
 
     for curname, sid in gen_names():
         curname += ' ' + bname
-        curname = tools.normalize(curname)
+        curname = tokenize(curname)
         if curname.strip() == '':
             continue
         res = await query_solr(session, curname, FLAGS.nrows)
@@ -180,7 +180,8 @@ def solr_sample(elements):
     samples.columns = SAMPLE_COLUMNS  # + train
 
     if not FLAGS.for_test:
-        # save_positions(positions)
+        if FLAGS.nrows == 100:
+            save_positions(positions)
         qids_train, qids_test = train_test_split(
             samples['qid'].unique(), test_size=0.2, random_state=11)
         samples['train'] = samples['qid'].isin(qids_train).astype(int)

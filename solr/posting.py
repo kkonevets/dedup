@@ -33,7 +33,7 @@ def clean_et(et, exclude=None):
     for k in keys:
         v = et[k]
         if type(v) == str:
-            et[k] = tools.normalize(v)
+            et[k] = tokenize(v)
 
 
 def proceed_one(et):
