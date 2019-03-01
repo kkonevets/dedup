@@ -18,6 +18,7 @@ $interpreter preprocessing/dataset.py \
 --build_features \
 --build_tfidf \
 --tfidf \
+--build_fasttext \
 --fasttext\
 
 printf "${RED}simboost\n${NC}"

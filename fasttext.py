@@ -8,7 +8,7 @@ from tokenizer import tokenize
 FLAGS = tools.FLAGS
 
 
-def main():
+def main(argv):
     client = MongoClient(FLAGS.mongo_host)
     mdb = client[FLAGS.release_db]
     mets = mdb.etalons.find({},
