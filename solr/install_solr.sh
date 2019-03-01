@@ -11,7 +11,7 @@ docker run --name solonom -d -p 8983:8983 -t -v $PWD/data/solr:/opt/solr/mydata 
 cd dedup
 docker exec -it --user=solr solonom bin/solr create_core -c nom_core
 
-docker cp stopwords_ru.txt solonom:/opt/solr/server/solr/nom_core/conf/lang/stopwords_ru.txt
+docker cp solr/stopwords_ru.txt solonom:/opt/solr/server/solr/nom_core/conf/lang/stopwords_ru.txt
 
       # "tokenizer": {
       #   "class": "solr.StandardTokenizerFactory"
