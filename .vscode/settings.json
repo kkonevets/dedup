@@ -31,5 +31,6 @@
             "localPath": "/Users/imafamilia/Documents/dedup/",
             "remotePath": "ubuntu@10.72.102.67:/home/ubuntu/dedup/"
         }
-    ]
+    ],
+    "python.linting.pylintEnabled": true
 }

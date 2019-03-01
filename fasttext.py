@@ -1,3 +1,4 @@
+from absl import app
 from gensim.models import FastText
 from pymongo import MongoClient
 import tools
