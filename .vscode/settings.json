@@ -2,7 +2,6 @@
     "explorer.confirmDelete": false,
     "cmake.configureOnOpen": true,
     "editor.minimap.enabled": false,
-    "python.pythonPath": "/usr/local/opt/python/bin/python3.7",
     "editor.formatOnSave": true,
     "files.exclude": {
         "**/__pycache__": true,

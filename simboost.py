@@ -184,5 +184,5 @@ if __name__ == "__main__":
     if hasattr(__main__, '__file__'):
         app.run(main)
     else:
-        sys.argv += ['--data_dir=../data/dedup/', '--tfidf']
+        sys.argv += ['--data_dir=../data/dedup/', '--tfidf', '--fasttext']
         FLAGS(sys.argv)

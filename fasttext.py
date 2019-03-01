@@ -8,17 +8,6 @@ from tokenizer import tokenize
 FLAGS = tools.FLAGS
 
 
-def replace_num(tokens):
-    ret = []
-    for t in tokens:
-        try:
-            float(t)
-            ret.append('<NUMBER>')
-        except:
-            ret.append(t)
-    return ret
-
-
 def main():
     client = MongoClient(FLAGS.mongo_host)
     mdb = client[FLAGS.release_db]
@@ -39,16 +28,16 @@ def main():
     def iter_sents(ets, total):
         for et in tools.tqdm(ets, total=total):
             name = tokenize(et['name'])
-            yield replace_num(name.split())
+            yield tools.replace_num(name.split())
 
             desc = et.get('description')
             if desc:
                 desc = tokenize(desc)
-                yield replace_num(desc.split())
+                yield tools.replace_num(desc.split())
 
             for syn in et.get('synonyms', []) + et.get('mistypes', []):
                 sname = tokenize(syn['name'])
-                yield replace_num(sname.split())
+                yield tools.replace_num(sname.split())
 
     sents = list(iter_sents(chain(ets, mets), total+mtotal))
 

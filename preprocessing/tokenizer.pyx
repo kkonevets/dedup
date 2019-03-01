@@ -1,12 +1,12 @@
 #!python
 #cython: language_level=3
 
+from icu import Transliterator
+from cpython cimport bool
+import array
+from cpython cimport array
 cimport cython
 
-from cpython cimport array
-import array
-from cpython cimport bool
-from icu import Transliterator
 
 trans = Transliterator.createInstance('Latin-Cyrillic')
 
@@ -21,7 +21,7 @@ cdef:
         'л': 'литр', 'лит': 'литр',
         'kg': 'кг',
         'mm': 'мм', 'cm': 'см', 'м': 'метр', 'm': 'метр',
-        'gb': 'гб', 'mb': 'мб', 
+        'gb': 'гб', 'mb': 'мб',
         '№': 'номер',
         'ват': 'ватт', 'вт': 'ватт', 'w': 'ватт', 'в': 'вольт', 'v': 'вольт',
         'а': 'ампер', 'a': 'ампер', 'hz': 'герц', 'гц': 'герц'}
@@ -34,8 +34,8 @@ cdef:
 
 cpdef tokenize(s):
     cdef:
-        unicode ustring = <unicode>s
-        Py_UCS4 prev, c 
+        unicode ustring = <unicode > s
+        Py_UCS4 prev, c
         array.array out = array.array('u')
         unsigned int ordinal
         bool isnum = False
@@ -43,8 +43,8 @@ cpdef tokenize(s):
 
     for c in ustring:
         ordinal = ord(c)
-        islat = 32<=ordinal<=126
-        iscyr = 1025<=ordinal<=1105
+        islat = 32 <= ordinal <= 126
+        iscyr = 1025 <= ordinal <= 1105
 
         if not islat and not iscyr:
             out.append(' ')
@@ -74,8 +74,10 @@ cpdef tokenize(s):
                 out.append(' ')
             isnum = False
 
-        if c == 'ё': c = 'е'
-        if c == 'й': c = 'и'
+        if c == 'ё':
+            c = 'е'
+        if c == 'й':
+            c = 'и'
 
         # detect dimentions 44x33 or 44*33
 
@@ -95,7 +97,7 @@ cpdef tokenize(s):
     if lsp > 1:
         for w_prev, w_next in zip(splited[:-1], splited[1:]):
             if w_prev.isnumeric():
-                w_next = unit_lookup.get(w_next, w_next) 
+                w_next = unit_lookup.get(w_next, w_next)
             if len(w_next) > 1:
                 temp.append(w_next)
 

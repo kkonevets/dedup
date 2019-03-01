@@ -73,17 +73,20 @@ def compute_tfidf_dists(train_gen, test_gen):
 
 
 def compute_fasttext_dists(train_gen_raw, test_gen_raw):
-    model = FastText.load_fasttext_format(
-        FLAGS.data_dir + '../vectors/cc.ru.300.bin')
-    # model.wv.most_similar('ватт')
+    from gensim.models import FastText
+
+    # model = FastText.load_fasttext_format(
+    #     FLAGS.data_dir + '../vectors/cc.ru.300.bin')
+
+    model = FastText.load(FLAGS.data_dir + '/ftext.model')
 
     def get_dists(gen, fname):
         dists = []
         for qdi in gen:
-            qvecs = [model.wv[term] for term in qdi.q_terms if
-                     term.isalpha() and len(term) > 2 and term in model.wv]
-            dvecs = [model.wv[term] for term in qdi.d_terms if
-                     term.isalpha() and len(term) > 2 and term in model.wv]
+            qvecs = [model.wv[term] for term in tools.replace_num(qdi.q_terms) if
+                     term in model.wv]
+            dvecs = [model.wv[term] for term in tools.replace_num(qdi.d_terms) if
+                     term in model.wv]
             qmean = np.mean(qvecs, axis=0)
             dmean = np.mean(dvecs, axis=0)
             if len(qvecs) and len(dvecs):
@@ -97,6 +100,7 @@ def compute_fasttext_dists(train_gen_raw, test_gen_raw):
                                               mean, median, std])
         dists = np.array(dists)
         dists[:, :3] = dists[:, :3].astype(np.int32)
+        dists[:, 3:] = dists[:, 3:].astype(np.float32)
         np.savez(fname, vals=dists)
 
     get_dists(train_gen_raw, FLAGS.data_dir + '/train_fasttext_cosine.npz')
@@ -173,5 +177,6 @@ if __name__ == '__main__':
         app.run(main)
     else:
         sys.argv += ['--data_dir=../data/dedup',
-                     '--build_features', '--build_tfidf', '--tfidf']
+                     '--build_features', '--build_tfidf', '--tfidf',
+                     '--build_fasttext', '--fasttext']
         FLAGS(sys.argv)

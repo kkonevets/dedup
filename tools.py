@@ -294,3 +294,14 @@ def feed2mongo(feed, dbname):
 
         if len(v):
             db[k].insert_many(v)
+
+
+def replace_num(tokens):
+    ret = []
+    for t in tokens:
+        try:
+            float(t)
+            ret.append('<NUMBER>')
+        except:
+            ret.append(t)
+    return ret
