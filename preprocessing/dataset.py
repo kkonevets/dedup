@@ -82,7 +82,7 @@ def compute_fasttext_dists(train_gen_raw, test_gen_raw):
 
     def get_dists(gen, fname):
         @lru_cache(maxsize=1)
-        def lookup_q_vecs(terms):
+        def get_prev(terms):
             vecs = [model.wv[t] for t in tools.replace_num(terms)
                     if t in model.wv]
             mean = np.mean(vecs, axis=0)
@@ -90,7 +90,7 @@ def compute_fasttext_dists(train_gen_raw, test_gen_raw):
 
         dists = []
         for qdi in gen:
-            qvecs, qmean = lookup_q_vecs(tuple(qdi.q_terms))
+            qvecs, qmean = get_prev(tuple(qdi.q_terms))
             dvecs = [model.wv[term] for term in tools.replace_num(qdi.d_terms) if
                      term in model.wv]
             dmean = np.mean(dvecs, axis=0)
