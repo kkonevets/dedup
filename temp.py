@@ -8,6 +8,8 @@ import numpy as np
 from pymongo import MongoClient
 import fuzzy
 import h5py
+from functools import lru_cache
+
 
 ftrs = tools.load_samples('../data/dedup/corpus.npz')
 ftrs = ftrs[['synid', 'fid', 'train']].values.astype(np.float)
@@ -66,3 +68,16 @@ for qdi in train_gen:
     sids.update([qdi.ixs[1]])
 
 print(len(qids), len(sids))
+
+
+l = [1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4]
+
+
+@lru_cache(maxsize=1)
+def f(x):
+    print('%d !!!!' % x)
+    return x
+
+
+for x in l:
+    print(f(x))

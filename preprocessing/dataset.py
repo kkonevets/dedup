@@ -27,6 +27,7 @@ from preprocessing.producing import Producer
 from preprocessing.letor import Letor
 from preprocessing.letor import INFO_COLUMNS
 import preprocessing.tfrecord as tfrec
+from functools import lru_cache
 
 FLAGS = tools.FLAGS
 
@@ -77,17 +78,21 @@ def compute_fasttext_dists(train_gen_raw, test_gen_raw):
 
     # model = FastText.load_fasttext_format(
     #     FLAGS.data_dir + '../vectors/cc.ru.300.bin')
-
     model = FastText.load(FLAGS.data_dir + '/ftext.model')
 
     def get_dists(gen, fname):
+        @lru_cache(maxsize=1)
+        def lookup_q_vecs(terms):
+            vecs = [model.wv[t] for t in tools.replace_num(terms)
+                    if t in model.wv]
+            mean = np.mean(vecs, axis=0)
+            return vecs, mean
+
         dists = []
         for qdi in gen:
-            qvecs = [model.wv[term] for term in tools.replace_num(qdi.q_terms) if
-                     term in model.wv]
+            qvecs, qmean = lookup_q_vecs(tuple(qdi.q_terms))
             dvecs = [model.wv[term] for term in tools.replace_num(qdi.d_terms) if
                      term in model.wv]
-            qmean = np.mean(qvecs, axis=0)
             dmean = np.mean(dvecs, axis=0)
             if len(qvecs) and len(dvecs):
                 paired = pairwise_distances(qvecs, dvecs, metric='cosine')
