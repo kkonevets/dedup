@@ -46,7 +46,7 @@ class Producer:
                 q_terms = qid2text[row.qid].split()
             d_terms = fid2text[row.fid].split()
 
-            if row.target == 0 and ' '.join(d_terms) == ' '.join(q_terms):
+            if row.target == 0 and q_terms == d_terms:
                 continue
 
             if len(q_terms) * len(d_terms) == 0:
