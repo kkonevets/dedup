@@ -54,3 +54,15 @@ def f():
             'Кофе в зернах ИНТЕНСО Красный 1 кг Bianca Ferrari Высота: 1 05мм Ширина: 4.5мм Размеры: 5.1 x 4.5 x 1.05мм Тип корпуса: TSSOP Длина: 5.1мм')
 
 #!
+
+
+prod = Producer(FLAGS.data_dir, COLNAMES)
+train_gen, test_gen = prod.gen_pairs()
+
+qids = set()
+sids = set()
+for qdi in train_gen:
+    qids.update([qdi.ixs[0]])
+    sids.update([qdi.ixs[1]])
+
+print(len(qids), len(sids))

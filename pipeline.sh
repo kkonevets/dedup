@@ -19,8 +19,8 @@ python3 preprocessing/corpus.py \
 --data_dir=../data/dedup/ \
 --build_tfidf \
 
-printf "${RED}fasttext\n${NC}"
-python3 fasttext.py
+# printf "${RED}fasttext\n${NC}"
+# python3 fasttext.py
 
 printf "${RED}coping to ${NC}$dst\n"
 rsync -lptgoDmvzP ../data/dedup/* $dst:/home/ubuntu/data/dedup

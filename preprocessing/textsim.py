@@ -73,13 +73,12 @@ def append_h5(fname, vals, columns):
         if len(hf.keys()) == 0:
             hf.create_dataset('ftrs', data=vals,
                               maxshape=(None, vals.shape[1]),
-                              dtype='f', chunks=True)
+                              dtype='f')
         else:
             hf['ftrs'].resize(hf['ftrs'].shape[0] + vals.shape[0], axis=0)
 
         hf['ftrs'][-vals.shape[0]:] = vals
         hf['ftrs'].attrs['columns'] = columns
-        hf.flush()
 
 
 def extract_similarity_features(data_gen, colnames, output_file):
