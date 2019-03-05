@@ -3,17 +3,14 @@ import json
 import io
 from tqdm import tqdm
 import re
+import sys
+from absl import app
 import multiprocessing as mp
 from pymongo import MongoClient
 from tokenizer import tokenize
 from os.path import expanduser
 
-
-client = MongoClient(tools.c_HOST)
-mdb = client['release']
-
-id2cat = {c['_id']: c for c in mdb.categories.find({}, projection=['name'])}
-id2brand = {c['_id']: c for c in mdb.brands.find({}, projection=['name'])}
+FLAGS = tools.FLAGS
 
 prog = re.compile("[\\W]", re.UNICODE)
 
@@ -74,7 +71,7 @@ def proceed_one(et):
     return new_et
 
 
-def etalons_to_docs():
+def etalons_to_docs(argv):
     total = mdb.etalons.count_documents({})
     iterator = mdb.etalons.find(
         {}, projection=['name', 'categoryId', 'synonyms', 'brandId',
@@ -93,4 +90,17 @@ def etalons_to_docs():
 
 
 if __name__ == '__main__':
-    etalons_to_docs()
+    import __main__
+
+    FLAGS(sys.argv)
+
+    client = MongoClient(FLAGS.mongo_host)
+    mdb = client[FLAGS.release_db]
+
+    id2cat = {c['_id']: c for c in mdb.categories.find(
+        {}, projection=['name'])}
+    id2brand = {c['_id']: c for c in mdb.brands.find(
+        {}, projection=['name'])}
+
+    if hasattr(__main__, '__file__'):
+        app.run(etalons_to_docs)
