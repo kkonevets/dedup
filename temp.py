@@ -15,3 +15,7 @@ with io.open('../data/dedup/1cnrel-2019-02-26-19.json', encoding='utf8') as f:
     feed = json.load(f)
 
 tools.feed2mongo(feed, 'release2')
+
+
+client = MongoClient(FLAGS.mongo_host)
+db = client[dbname]

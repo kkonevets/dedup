@@ -150,6 +150,33 @@ def build_classifier():
     scoring.plot_binary_prob_freqs(dtest.get_label(), test_probs)
 
 
+def topn_pr(ftest, n_thresholds=30):
+    # precision, recall, _ = precision_recall_curve(y_true, probas_pred)
+    thresholds = np.cumsum(np.ones(n_thresholds)/n_thresholds)
+    y_trues, y_preds = [], []
+    for (qid, sid), g in tools.tqdm(ftest.groupby(['qid', 'synid'])):
+        y_true, y_pred = [], []
+        gsort = g.sort_values('prob', ascending=False)
+        tmax_global = gsort['target'].max()
+        tmax = gsort['target'][:5].max()
+        pmax = gsort['prob'][:5].max()
+        for thres in thresholds:
+            y_true.append(tmax_global)
+            if pmax > thres:
+                y_pred.append(tmax)
+            else:
+                y_pred.append(0)
+
+        y_trues.append(y_true)
+        y_preds.append(y_pred)
+
+    y_trues = np.array(y_trues).T
+    y_preds = np.array(y_preds).T
+
+    for y_true, y_pred in zip(y_trues, y_preds):
+        cm = confusion_matrix(y_true, y_pred)
+
+
 def test():
     xgb_clr = joblib.load('../data/dedup/xgb_clr.model')
     ftrain, ftest = load_sim_ftrs()
