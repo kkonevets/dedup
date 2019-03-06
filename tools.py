@@ -38,7 +38,6 @@ flags.DEFINE_bool("notranslit", False,
 flags.DEFINE_bool("build_tfidf", False, "build tfidf model")
 flags.DEFINE_bool("tfidf", False, "use tfidf features")
 flags.DEFINE_bool("fasttext", False, "use fasttext features")
-flags.DEFINE_bool("for_test", False, "sample just for test")
 flags.DEFINE_bool("build_features", False, "build column features")
 flags.DEFINE_bool("build_fasttext", False, "build fasttext features")
 flags.DEFINE_bool("build_tfrecord", False,

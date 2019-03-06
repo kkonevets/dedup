@@ -11,8 +11,7 @@ export PYTHONPATH="$PYTHONPATH:$PWD"
 printf "${RED}sampling\n${NC}"
 time python3 preprocessing/sampling.py \
 --data_dir=../data/dedup/ \
---nrows=50 \
-# --for_test 
+--nrows=30 \
 
 printf "${RED}corpus\n${NC}"
 python3 preprocessing/corpus.py \

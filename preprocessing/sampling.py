@@ -4,7 +4,6 @@ Sample command lines:
 python3 preprocessing/sampling.py \
 --data_dir=../data/dedup \
 --nrows=2 \
---for_test \
 
 """
 
@@ -30,7 +29,7 @@ import itertools
 from tokenizer import tokenize
 
 FLAGS = tools.FLAGS
-SAMPLE_COLUMNS = ['qid', 'synid', 'fid', 'score', 'target', 'ix']  # , 'train'
+SAMPLE_COLUMNS = ['qid', 'synid', 'fid', 'score', 'target', 'existing', 'ix']  # , 'train'
 
 
 async def query_solr(session, text, rows=1):
@@ -78,6 +77,7 @@ def sample_one(found, et, synid):
            int(el['id']),
            el['score'],
            int(int(el['id']) == et['srcId']),
+           et['srcId'] is not None, # existing
            i]
           for i, el in enumerate(found)]
 
@@ -91,12 +91,12 @@ def sample_one(found, et, synid):
         row[score_ix] = row[score_ix]/score_sum
         has_traget = max(has_traget, row[target_ix] == 1)
 
-    if FLAGS.for_test:
+    if et['srcId'] is None: # not existing
         return df
 
     if not has_traget:
         # target is not in the TOP N
-        df[0] = [et['id'], synid, et['srcId'], 0, 1, -1]
+        df[0] = [et['id'], synid, et['srcId'], 0, 1, True, -1]
 
     return df
 
@@ -105,7 +105,7 @@ async def produce(queue, session, bname, et):
     et['id'] = et.pop('_id')
 
     def gen_names():
-        if FLAGS.for_test:
+        if et['srcId'] is None: # not existing
             yield et['name'], None
         else:
             for syn in et.get('synonyms', []):
@@ -128,7 +128,7 @@ async def consume(queue, samples, positions):
         if len(found):
             samples += sample_one(found, et, sid)
 
-        if not FLAGS.for_test:
+        if et['srcId'] is not None: # existing
             rec = get_position_record(found, et)
             positions.append([et['id'], sid] + rec)
 
@@ -155,11 +155,12 @@ async def query_all(elements):
     timeout = aiohttp.ClientTimeout(total=60*60)  # 60 mins in keep alive mode
     async with aiohttp.ClientSession(timeout=timeout) as session:
         for et in ets:
-            if FLAGS.for_test:
+            el = id2el[et['_id']]
+            idrel = el.get('_id_release')
+            if idrel:
+                et['srcId'] = idrel
+            else:  # not existing
                 et['srcId'] = None
-            else:
-                el = id2el[et['_id']]
-                et['srcId'] = el['_id_release']
 
             bid = et.get('brandId')
             bname = id2brand[bid]['name'] if bid else ''
@@ -178,13 +179,13 @@ def solr_sample(elements):
 
     samples = pd.DataFrame(samples)
     samples.columns = SAMPLE_COLUMNS  # + train
+    arr = samples[['qid', 'existing']].drop_duplicates()
 
-    if not FLAGS.for_test:
-        if FLAGS.nrows == 100:
-            save_positions(positions)
-        qids_train, qids_test = train_test_split(
-            samples['qid'].unique(), test_size=0.2, random_state=11)
-        samples['train'] = samples['qid'].isin(qids_train).astype(int)
+    if FLAGS.nrows == 100:
+        save_positions(positions)
+    qids_train, qids_test = train_test_split(
+        arr['qid'], test_size=0.2, random_state=11, stratify=arr['existing'])
+    samples['train'] = samples['qid'].isin(qids_train).astype(int)
 
     X_samples = samples.values.astype(np.float32)
     np.savez(FLAGS.data_dir + '/samples.npz',
@@ -236,18 +237,22 @@ def main(argv):
         os.makedirs(FLAGS.data_dir)
 
     existing = get_existing(anew=False)
-    # elements = existing
 
-    if FLAGS.for_test:
-        client = MongoClient(FLAGS.mongo_host)
-        db = client[FLAGS.feed_db]
-        not_existing = db.etalons.find(
-            {'_id': {'$nin': [el['_id'] for el in existing]}},
-            projection=['_id'])
-        not_existing = [el for el in not_existing][:50000]
-        solr_sample(not_existing)
-    else:
-        solr_sample(existing)
+    client = MongoClient(FLAGS.mongo_host)
+    db = client[FLAGS.feed_db]
+    not_existing = db.etalons.find(
+        {'_id': {'$nin': [el['_id'] for el in existing]}},
+        projection=['_id'])
+    
+    # existing = existing[:1000]
+
+    not_existing = list(not_existing)
+    np.random.seed(0)
+    np.random.shuffle(not_existing)
+    # can't take all not_existing - too much
+    elements = existing + not_existing[:len(existing)]
+
+    solr_sample(elements)
 
 
 if __name__ == '__main__':
@@ -257,5 +262,5 @@ if __name__ == '__main__':
     if hasattr(__main__, '__file__'):
         app.run(main)
     else:
-        sys.argv += ['--data_dir=../data/dedup/']
+        sys.argv += ['--data_dir=../data/dedup/', '--nrows=5']
         FLAGS(sys.argv)
