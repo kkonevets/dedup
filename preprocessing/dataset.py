@@ -104,7 +104,6 @@ def compute_fasttext_dists(train_gen_raw, test_gen_raw):
             dists.append(list(qdi.ixs[:3]) + [cosine(qmean, dmean),
                                               mean, median, std])
         dists = np.array(dists)
-        dists[:, :3] = dists[:, :3].astype(np.int32)
         dists[:, 3:] = dists[:, 3:].astype(np.float32)
         np.savez(fname, vals=dists)
 

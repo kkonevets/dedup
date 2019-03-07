@@ -18,18 +18,19 @@ class Letor:
         self.std_scaler_path = '../data/dedup/standard_scaler.pkl'
         self.value_cols = [c for c in test_ftrs.columns
                            if c not in INFO_COLUMNS]
-
+ 
     @staticmethod
     def _exclude_not_found(ftrs):
         """
-        ############ RANKER: exclude groups with ix == -1 ###############
+        ############ RANKER: exclude groups without target==1 ###############
         Exclude whole groups from ranking because they don't have positive target
         """
         if ftrs is None:
             return None
-        exclude = ftrs[ftrs['ix'] == -1]['synid'].unique()
-        cond = ftrs['synid'].isin(exclude)
-        return ftrs[~cond]
+        st = ftrs[['synid', 'target']].drop_duplicates()
+        st = st.groupby('synid').filter(lambda x: len(x) > 1)
+        cond = ftrs['synid'].isin(st['synid'])
+        return ftrs[cond]
 
     def _split(self):
         if self.test_only:
