@@ -72,7 +72,7 @@ def plot_topn_curves(positions_list, fname, scale=1, labels=None, title=None):
 
 
 def plot_precision_recall_straight(precision, recall, 
-            average_precision=None, tag='', recall_scale=1):
+            average_precision=None, tag='', recall_scale=1, prefix=''):
     import matplotlib.pyplot as plt
 
     precision = np.array(precision)
@@ -92,7 +92,7 @@ def plot_precision_recall_straight(precision, recall,
     ax.set_ylim([0.0, 1])
     ax.set_xlim([0.0, 1])
     if average_precision:
-        ax.set_title('Precision-Recall curve: AP={0:0.2f}'.format(
+        ax.set_title(prefix+'Precision-Recall curve: AP={0:0.2f}'.format(
             average_precision))
     fig.savefig('../data/dedup/prec_recal%s.pdf' % tag, dpi=400)
 
