@@ -71,11 +71,12 @@ def plot_topn_curves(positions_list, fname, scale=1, labels=None, title=None):
     fig.savefig(fname)
 
 
-def plot_precision_recall(y_true, probas_pred, tag='', recall_scale=1):
+def plot_precision_recall_straight(precision, recall, 
+            average_precision=None, tag='', recall_scale=1):
     import matplotlib.pyplot as plt
 
-    average_precision = average_precision_score(y_true, probas_pred)
-    precision, recall, _ = precision_recall_curve(y_true, probas_pred)
+    precision = np.array(precision)
+    recall = np.array(recall)
 
     plt.clf()
     fig, ax = plt.subplots()
@@ -90,10 +91,21 @@ def plot_precision_recall(y_true, probas_pred, tag='', recall_scale=1):
     ax.set_ylabel('Precision')
     ax.set_ylim([0.0, 1])
     ax.set_xlim([0.0, 1])
-    ax.set_title('Precision-Recall curve: AP={0:0.2f}'.format(
-        average_precision))
+    if average_precision:
+        ax.set_title('Precision-Recall curve: AP={0:0.2f}'.format(
+            average_precision))
     fig.savefig('../data/dedup/prec_recal%s.pdf' % tag, dpi=400)
 
+
+def plot_precision_recall(y_true, probas_pred, tag='', recall_scale=1):
+    average_precision = average_precision_score(y_true, probas_pred)
+    precision, recall, _ = precision_recall_curve(y_true, probas_pred)
+
+    plot_precision_recall_straight(precision, recall, 
+        tag=tag, recall_scale=recall_scale, 
+        average_precision=average_precision)
+
+ 
 
 def get_recall_test_scale():
     samples = tools.load_samples('../data/dedup/samples.npz')
@@ -212,16 +224,16 @@ def ndcg_at_k(r, k, method=1):
     return dcg_at_k(r, k, method) / dcg_max
 
 
-def examples_to_view(ftest, test_probs, feed_db, release_db):
+def examples_to_view(ftest, feed_db, release_db):
     from pymongo import MongoClient
+
+    test_probs = ftest['prob']
 
     client = MongoClient(tools.c_HOST)
     db = client[feed_db]
     mdb = client[release_db]
 
     columns = INFO_COLUMNS + ['prob']
-    ftest['prob'] = test_probs
-
     cond = (test_probs > 0.9) & (ftest['target'] == 0)
     df1 = ftest[cond][columns].copy()
 
@@ -244,8 +256,11 @@ def examples_to_view(ftest, test_probs, feed_db, release_db):
         qs, ds = [], []
         for row in df.itertuples():
             et = qid2et[row.qid]
-            name = next((s['name'] for s in et.get('synonyms')
-                         if s['id'] == row.synid))
+            if pd.isna(row.synid):
+                name = next((s['name'] for s in et.get('synonyms')
+                            if s['id'] == row.synid))
+            else:
+                name = et['name']
             q = tools.constitute_text(
                 name, et, id2brand, use_syns=False)
 

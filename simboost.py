@@ -19,7 +19,7 @@ import shutil
 import os
 import tools
 from preprocessing.dataset import load_sim_ftrs
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, precision_recall_fscore_support
 from sklearn.model_selection import train_test_split
 from sklearn.externals import joblib
 from preprocessing.letor import INFO_COLUMNS
@@ -125,6 +125,7 @@ def build_classifier():
     _ = scoring.clr_predict(train_probs, dtrain)
 
     test_probs = xgb_clr.predict(dtest)
+    ftest['prob'] = test_probs
     y_pred = scoring.clr_predict(test_probs, dtest, threshold=0.5)
     scoring.plot_precision_recall(dtest.get_label(), test_probs, tag='',
                                   recall_scale=recall_scale)
@@ -145,36 +146,61 @@ def build_classifier():
     # ftest['prob'] = test_probs
     # ftest[INFO_COLUMNS+['score', 'prob']].sort_values(['qid', 'synid', 'fid', 'target'])
 
-    scoring.examples_to_view(
-        ftest, test_probs, FLAGS.feed_db, FLAGS.release_db)
+    scoring.examples_to_view(ftest, FLAGS.feed_db, FLAGS.release_db)
     scoring.plot_binary_prob_freqs(dtest.get_label(), test_probs)
 
+    for topn in [1,2,3,5,7]:
+        topn_precision_recall_curve(ftest, topn=topn, n_thresholds=100)
 
-def topn_precision_recall_curve(ftest, topn=5, n_thresholds=30):
-    thresholds = np.cumsum(np.ones(n_thresholds)/n_thresholds)
-    y_trues, y_preds = [], []
+
+def topn_precision_recall_curve(ftest, topns, n_thresholds=100):
+    thresholds = np.arange(0, 1.000000000001, 1/n_thresholds)
+    scores = []
+
     for (qid, sid), g in tools.tqdm(ftest.groupby(['qid', 'synid'])):
-        y_true, y_pred = [], []
         gsort = g.sort_values('prob', ascending=False)
         tmax_global = gsort['target'].max()
-        tmax = gsort['target'][:topn].max()
-        pmax = gsort['prob'][:topn].max()
-        for thres in thresholds:
-            y_true.append(tmax_global)
-            if tmax_global:
-                y_pred.append(tmax)
+        pmax = gsort['prob'].iloc[0]
+
+        tp_fp_tn_fn_topns = []
+        for topn in topns:
+            tmax = gsort['target'][:topn].max()
+            tp_fp_tn_fn = []
+            for thres in thresholds:
+                if tmax_global: # запрос имеет дубль в релизе
+                    if pmax >= thres: # выдача непустая
+                        if tmax: # нужный дубль вошел в топ-5
+                            tp_fp_tn_fn.append([1,0,0,0])
+                        else:
+                            tp_fp_tn_fn.append([0,1,0,0])
+                    else: # выдача пустая
+                        tp_fp_tn_fn.append([0,0,0,1]) 
+                else: # запрос не имеет дубля в релизе
+                    if pmax >= thres: # выдача непустая
+                        tp_fp_tn_fn.append([0,1,0,0])
+                    else: # выдача пустая
+                        tp_fp_tn_fn.append([0,0,1,0])
+            
+            tp_fp_tn_fn_topns.append(tp_fp_tn_fn)
+
+        scores.append(tp_fp_tn_fn_topns)
+
+    scores = np.array(scores, dtype=np.int)
+
+    for i, topn in enumerate(topns):
+        precision, recall = [], []
+        for j in range(scores.shape[2]):
+            tp, fp, tn, fn = scores[:,i,j,:].sum(axis=0)
+            if tp+fp:
+                precision.append(tp/(tp+fp))
             else:
-                y_pred.append(int(pmax >= thres))
+                precision.append(1)
+            recall.append(tp/(tp+fn))
 
-        y_trues.append(y_true)
-        y_preds.append(y_pred)
-
-    y_trues = np.array(y_trues).T
-    y_preds = np.array(y_preds).T
-
-    for y_true, y_pred in zip(y_trues, y_preds):
-        cm = confusion_matrix(y_true, y_pred)
-
+        recall_scale = scoring.get_recall_test_scale()
+        scoring.plot_precision_recall_straight(precision, recall, 
+                tag='_top%d'%topn, recall_scale=recall_scale,
+                average_precision=np.mean(precision))
 
 def test():
     xgb_clr = joblib.load('../data/dedup/xgb_clr.model')

@@ -103,8 +103,7 @@ def compute_fasttext_dists(train_gen_raw, test_gen_raw):
                 mean, median, std = -1, -1, -1
             dists.append(list(qdi.ixs[:3]) + [cosine(qmean, dmean),
                                               mean, median, std])
-        dists = np.array(dists)
-        dists[:, 3:] = dists[:, 3:].astype(np.float32)
+        dists = np.array(dists, dtype=np.float32)
         np.savez(fname, vals=dists)
 
     get_dists(train_gen_raw, FLAGS.data_dir + '/train_fasttext_cosine.npz')
