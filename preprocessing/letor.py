@@ -29,7 +29,11 @@ class Letor:
             return None
         st = ftrs[['synid', 'target']].drop_duplicates()
         st = st.groupby('synid').filter(lambda x: len(x) > 1)
-        cond = ftrs['synid'].isin(st['synid'])
+
+        exclude = ftrs[ftrs['ix'] == -1]['synid'].unique()
+        cond0 = ~ftrs['synid'].isin(exclude)
+
+        cond = ftrs['synid'].isin(st['synid']) & cond0
         return ftrs[cond]
 
     def _split(self):
