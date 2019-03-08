@@ -184,7 +184,7 @@ def topn_precision_recall_curve(ftest, topns, n_thresholds=100):
 
         scores.append(tp_fp_tn_fn_topns)
 
-    scores = np.array(scores, dtype=np.int)
+    scores = np.array(scores, dtype=np.int64)
 
     for i, topn in enumerate(topns):
         precision, recall = [], []
