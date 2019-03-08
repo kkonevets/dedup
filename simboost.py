@@ -153,7 +153,7 @@ def build_classifier():
     
 
 def topn_precision_recall_curve(ftest, topns, n_thresholds=100):
-    thresholds = np.arange(0, 0.1**9, 1/n_thresholds)
+    thresholds = np.arange(0, 1 + 0.1**9, 1/n_thresholds)
     scores = []
 
     for (qid, sid), g in tools.tqdm(ftest.groupby(['qid', 'synid'])):
