@@ -32,10 +32,12 @@ FLAGS = tools.FLAGS
 SAMPLE_COLUMNS = ['qid', 'synid', 'fid', 'score', 'target', 'existing', 'ix']  # , 'train'
 
 
-async def query_solr(session, text, rows=1):
-    quoted = quote('name:(%s)^5 || synonyms:(%s)' % (text, text))
+async def query_solr(session, text, rows=1, synonyms=True):
+    body = 'name:(%s)' % text
+    if synonyms:
+        body = '%s^5 || synonyms:(%s)' % (body, text)
     q = 'http://%s:8983/solr/nom_core/select?' \
-        'q=%s&rows=%d&fl=*,score' % (FLAGS.solr_host, quoted, rows)
+        'q=%s&rows=%d&fl=*,score' % (FLAGS.solr_host, quote(body), rows)
     async with session.get(q) as response:
         res = await response.text()
     # print(traceback.format_exc())
@@ -116,7 +118,8 @@ async def produce(queue, session, bname, et):
         curname = tokenize(curname)
         if curname.strip() == '':
             continue
-        res = await query_solr(session, curname, FLAGS.nrows)
+        res = await query_solr(session, curname, 
+                FLAGS.nrows, synonyms=True)
         await queue.put((et, sid, res))
 
 

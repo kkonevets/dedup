@@ -149,7 +149,7 @@ def build_classifier():
     scoring.examples_to_view(ftest, FLAGS.feed_db, FLAGS.release_db)
     scoring.plot_binary_prob_freqs(dtest.get_label(), test_probs)
 
-    topn_precision_recall_curve(ftest, topns=[1,2,3,5,7], n_thresholds=100)
+    topn_precision_recall_curve(ftest, topns=[1,2,3,5,10,25], n_thresholds=100)
     
 
 def topn_precision_recall_curve(ftest, topns, n_thresholds=100):
@@ -196,11 +196,17 @@ def topn_precision_recall_curve(ftest, topns, n_thresholds=100):
                 precision.append(1)
             recall.append(tp/(tp+fn))
 
+        recall = np.array(recall)
         recall_scale = scoring.get_recall_test_scale()
         scoring.plot_precision_recall_straight(precision, recall, 
                 tag='_top%d'%topn, recall_scale=recall_scale,
                 average_precision=np.mean(precision),
                 prefix = 'Top %d: ' % topn)
+        
+        df = pd.DataFrame([precision, list(recall*recall_scale)]).T
+        df.columns = ('precision', 'recall')
+        df.to_csv('../data/dedup/prec_recall_top%d.csv' % topn,
+                 index=False, sep='\t')
 
 def test():
     xgb_clr = joblib.load('../data/dedup/xgb_clr.model')
