@@ -149,64 +149,9 @@ def build_classifier():
     scoring.examples_to_view(ftest, FLAGS.feed_db, FLAGS.release_db)
     scoring.plot_binary_prob_freqs(dtest.get_label(), test_probs)
 
-    topn_precision_recall_curve(ftest, topns=[1,2,3,5,10,25], n_thresholds=100)
+    scoring.topn_precision_recall_curve(ftest, 
+                    topns=[1,2,3,5,10,25], n_thresholds=100)
     
-
-def topn_precision_recall_curve(ftest, topns, n_thresholds=100):
-    thresholds = np.arange(0, 1 + 0.1**9, 1/n_thresholds)
-    scores = []
-
-    for (qid, sid), g in tools.tqdm(ftest.groupby(['qid', 'synid'])):
-        gsort = g.sort_values('prob', ascending=False)
-        tmax_global = gsort['target'].max()
-        pmax = gsort['prob'].iloc[0]
-
-        tp_fp_tn_fn_topns = []
-        for topn in topns:
-            tmax = gsort['target'][:topn].max()
-            tp_fp_tn_fn = []
-            for thres in thresholds:
-                if tmax_global: # запрос имеет дубль в релизе
-                    if pmax >= thres: # выдача непустая
-                        if tmax: # нужный дубль вошел в топ-5
-                            tp_fp_tn_fn.append([1,0,0,0])
-                        else:
-                            tp_fp_tn_fn.append([0,1,0,0])
-                    else: # выдача пустая
-                        tp_fp_tn_fn.append([0,0,0,1]) 
-                else: # запрос не имеет дубля в релизе
-                    if pmax >= thres: # выдача непустая
-                        tp_fp_tn_fn.append([0,1,0,0])
-                    else: # выдача пустая
-                        tp_fp_tn_fn.append([0,0,1,0])
-            
-            tp_fp_tn_fn_topns.append(tp_fp_tn_fn)
-
-        scores.append(tp_fp_tn_fn_topns)
-
-    scores = np.array(scores, dtype=np.int64)
-
-    for i, topn in enumerate(topns):
-        precision, recall = [], []
-        for j in range(scores.shape[2]):
-            tp, fp, tn, fn = scores[:,i,j,:].sum(axis=0)
-            if tp+fp:
-                precision.append(tp/(tp+fp))
-            else:
-                precision.append(1)
-            recall.append(tp/(tp+fn))
-
-        recall = np.array(recall)
-        recall_scale = scoring.get_recall_test_scale()
-        scoring.plot_precision_recall_straight(precision, recall, 
-                tag='_top%d'%topn, recall_scale=recall_scale,
-                average_precision=np.mean(precision),
-                prefix = 'Top %d: ' % topn)
-        
-        df = pd.DataFrame([precision, list(recall*recall_scale)]).T
-        df.columns = ('precision', 'recall')
-        df.to_csv('../data/dedup/prec_recall_top%d.csv' % topn,
-                 index=False, sep='\t')
 
 def test():
     xgb_clr = joblib.load('../data/dedup/xgb_clr.model')
