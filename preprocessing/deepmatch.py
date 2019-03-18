@@ -11,7 +11,6 @@ from sklearn.model_selection import train_test_split
 from pymongo import MongoClient
 from preprocessing.corpus import id2ets
 import csv
-import spacy
 from functools import partial
 
 FLAGS = tools.FLAGS
@@ -23,8 +22,6 @@ def frame_to_txt(df, mid2et, id2et, fname):
         'left_name',# 'left_brand',
         'right_name',# 'right_brand',
     ]
-
-    # nlp = spacy.load('xx')
 
     with io.open(fname, 'w', encoding='utf8') as f:
         writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
@@ -61,7 +58,7 @@ def generate_tts():
 
     qids = train_samples['qid'].unique()
 
-    qid_train, qid_vali = train_test_split(qids, test_size=0.1, 
+    qid_train, _ = train_test_split(qids, test_size=0.1, 
                                         random_state=random_state)
     cond = train_samples['qid'].isin(qid_train)
     train = train_samples[cond].sample(frac=1,random_state=random_state)
@@ -74,6 +71,7 @@ def generate_tts():
 
 def main(argv):
     del argv  # Unused.
+    generate_tts()
 
 
 if __name__ == '__main__':

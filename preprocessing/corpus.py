@@ -99,13 +99,13 @@ def make_corpus():
 
     ###############################################################
 
-    for et in tqdm(mid2et.values()):
+    for et in mid2et.values():
         corpus.append((None, None, et['_id'], None, et['text']))
 
     ###############################################################
 
     subdf = samples[['qid', 'synid', 'train']].drop_duplicates()
-    for qid, sid, train in tqdm(subdf.values):
+    for qid, sid, train in subdf.values:
         sid = None if pd.isna(sid) else sid
         et = id2et[(qid, sid)]
         corpus.append((qid, sid, None, train, et['text']))
