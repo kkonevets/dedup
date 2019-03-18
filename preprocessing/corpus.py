@@ -18,18 +18,65 @@ import sys
 from nltk.corpus import stopwords
 from tokenizer import tokenize
 
-
 FLAGS = tools.FLAGS
 
 
-def make_corpus():
+def id2ets(samples, all_master=False):
     client = MongoClient(FLAGS.mongo_host)
     db = client[FLAGS.feed_db]
     mdb = client[FLAGS.release_db]
 
-    corpus = []
     id2brand = {c['_id']: c for c in db.brands.find({}, projection=['name'])}
     mid2brand = {c['_id']: c for c in mdb.brands.find({}, projection=['name'])}
+
+    def get_brand_name(et, id2brand):
+        bid = et.get('brandId')
+        if bid:
+            bname = id2brand[bid]['name'].lower()
+            return bname
+        else:
+            return ''
+
+    proj = ['name', 'brandId', 'synonyms']
+
+    if all_master:
+        total = mdb.etalons.count_documents({})
+        mets = mdb.etalons.find({}, projection=proj)
+    else:
+        ids = list(samples['fid'].unique())
+        total = len(ids)
+        mets = mdb.etalons.find({'_id': {'$in': ids}},
+                               projection=proj)
+
+    mid2et = {}
+    for met in tqdm(mets, total=total):
+        met['brand'] = get_brand_name(met, mid2brand)
+        met.pop('brandId', None)
+        mid2et[met['_id']] = met
+
+    subdf = samples[['qid', 'synid']].drop_duplicates()
+    qids = subdf['qid'].unique().tolist()
+    ets = db.etalons.find({'_id': {'$in': qids}}, projection=proj)
+    id2et = {et['_id']: et for et in ets}
+    
+    id2et_new = {}
+    for qid, sid in tqdm(subdf.values):
+        et = id2et[qid]
+        if pd.isna(sid):
+            name = et['name']
+            sid = None
+        else:
+            name = next((s['name'] for s in et.get('synonyms')
+                         if s['id'] == sid))
+        
+        id2et_new[(qid, sid)] = {'_id': et['_id'], 'name': name, 
+                                'brand': get_brand_name(et, id2brand)}
+
+    return mid2et, id2et_new
+
+
+def make_corpus():
+    corpus = []
 
     samples = tools.load_samples(FLAGS.data_dir + '/samples.npz')
     if 'train' not in samples.columns:
@@ -37,36 +84,22 @@ def make_corpus():
 
     # translit = not FLAGS.notranslit
 
+    mid2et, id2et = id2ets(samples, all_master=FLAGS.build_tfidf)
+
     ###############################################################
 
-    if FLAGS.build_tfidf:
-        total = mdb.etalons.count_documents({})
-        ets = mdb.etalons.find({}, projection=['name', 'brandId', 'synonyms'])
-    else:
-        ids = list(samples['fid'].unique())
-        total = len(ids)
-        ets = mdb.etalons.find({'_id': {'$in': ids}},
-                               projection=['name', 'brandId', 'synonyms'])
-
-    for et in tqdm(ets, total=total):
-        text = tools.constitute_text(et['name'], et, mid2brand, use_syns=True)
+    for et in tqdm(mid2et.values()):
+        text = tools.constitute_text(et, use_syns=True)
         corpus.append((None, None, et['_id'], None,
                        tools.normalize(text)))
 
     ###############################################################
 
     subdf = samples[['qid', 'synid', 'train']].drop_duplicates()
-    qids = subdf['qid'].unique().tolist()
-    id2et = {et['_id']: et for et in db.etalons.find({'_id': {'$in': qids}})}
     for qid, sid, train in tqdm(subdf.values):
-        et = id2et[qid]
-        if pd.isna(sid):
-            name = et['name']
-        else:
-            name = next((s['name'] for s in et.get('synonyms')
-                         if s['id'] == sid))
-
-        text = tools.constitute_text(name, et, id2brand, use_syns=False)
+        sid = None if pd.isna(sid) else sid
+        et = id2et[(qid, sid)]
+        text = tools.constitute_text(et, use_syns=False)
         corpus.append((qid, sid, None, train,
                        tools.normalize(text)))
 

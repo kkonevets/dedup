@@ -249,19 +249,17 @@ def unique_syn(syn):
     return ' '.join(list(OrderedDict.fromkeys(syn.split())))
 
 
-def constitute_text(name, et, id2brand, use_syns=False):
-    text = name.lower()
+def constitute_text(et, use_syns=False):
+    text = et['name'].lower()
     if use_syns:
         syns = [s['name'].lower() for s in et.get('synonyms', [])]
         if syns:
             syns = [text] + syns
             text = unique_syn(' '.join(syns))
 
-    bid = et.get('brandId')
-    if bid:
-        bname = id2brand[bid]['name'].lower()
-        if bname not in text:
-            text += ' ' + bname
+    bname = et['brand'].lower()
+    if bname not in text:
+        text += ' ' + bname
     return text
 
 

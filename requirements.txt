@@ -4,6 +4,7 @@ seaborn
 openpyxl
 xlrd
 paramiko
+pyICU
 absl-py>=0.6.1
 abydos>=0.3.6
 appnope>=0.1.0
