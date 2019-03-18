@@ -21,7 +21,7 @@ from tokenizer import tokenize
 FLAGS = tools.FLAGS
 
 
-def id2ets(samples, all_master=False):
+def id2ets(samples, normalizer=None, all_master=False):
     client = MongoClient(FLAGS.mongo_host)
     db = client[FLAGS.feed_db]
     mdb = client[FLAGS.release_db]
@@ -52,6 +52,11 @@ def id2ets(samples, all_master=False):
     for met in tqdm(mets, total=total):
         met['brand'] = get_brand_name(met, mid2brand)
         met.pop('brandId', None)
+        
+        if normalizer:
+            text = tools.constitute_text(met, use_syns=True)
+            met['text'] = normalizer(text)
+        
         mid2et[met['_id']] = met
 
     subdf = samples[['qid', 'synid']].drop_duplicates()
@@ -69,8 +74,14 @@ def id2ets(samples, all_master=False):
             name = next((s['name'] for s in et.get('synonyms')
                          if s['id'] == sid))
         
-        id2et_new[(qid, sid)] = {'_id': et['_id'], 'name': name, 
-                                'brand': get_brand_name(et, id2brand)}
+        brand = get_brand_name(et, id2brand)
+        new_et = {'_id': et['_id'], 'name': name, 'brand': brand}
+
+        if normalizer:
+            text = tools.constitute_text(new_et, use_syns=False)
+            new_et['text'] = normalizer(text)
+
+        id2et_new[(qid, sid)] = new_et
 
     return mid2et, id2et_new
 
@@ -84,14 +95,12 @@ def make_corpus():
 
     # translit = not FLAGS.notranslit
 
-    mid2et, id2et = id2ets(samples, all_master=FLAGS.build_tfidf)
+    mid2et, id2et = id2ets(samples, tools.normalize, all_master=FLAGS.build_tfidf)
 
     ###############################################################
 
     for et in tqdm(mid2et.values()):
-        text = tools.constitute_text(et, use_syns=True)
-        corpus.append((None, None, et['_id'], None,
-                       tools.normalize(text)))
+        corpus.append((None, None, et['_id'], None, et['text']))
 
     ###############################################################
 
@@ -99,9 +108,7 @@ def make_corpus():
     for qid, sid, train in tqdm(subdf.values):
         sid = None if pd.isna(sid) else sid
         et = id2et[(qid, sid)]
-        text = tools.constitute_text(et, use_syns=False)
-        corpus.append((qid, sid, None, train,
-                       tools.normalize(text)))
+        corpus.append((qid, sid, None, train, et['text']))
 
     corpus = np.array(corpus)
     columns = ['qid', 'synid', 'fid', 'train', 'text']

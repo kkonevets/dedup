@@ -71,11 +71,11 @@ unit_lookup = {
 stemmer = SnowballStemmer("russian", ignore_stopwords=True)
 
 
-def normalize(sent, stem=False, translit=True):
+def normalize(sent, stem=False, translit=True, replace_i=True):
     """
     This works good but slow, redo
     """
-    tokens = normalize_v2(sent, translit)
+    tokens = normalize_v2(sent, translit, replace_i)
     if stem:
         tokens = (stemmer.stem(t) for t in tokens)
     sent = " ".join(tokens)
@@ -108,8 +108,10 @@ def split_unit(t):
     return t
 
 
-def proceed_token(t, translit=False):
-    t = t.replace('ё', 'е').replace('й', 'и').replace(',', '.')
+def proceed_token(t, translit=False, replace_i=True):
+    t = t.replace('ё', 'е').replace(',', '.')
+    if replace_i:
+        t = t.replace('й', 'и')
     num = isnum(t)
     if num:
         return num
@@ -137,9 +139,9 @@ def proceed_token(t, translit=False):
     return t
 
 
-def normalize_v2(sent, translit=False):
+def normalize_v2(sent, translit=False, replace_i=True):
     tmp = sent.translate(TransTable).lower()
-    tokens = (proceed_token(t, translit) for t in wt.tokenize(tmp, False))
+    tokens = (proceed_token(t, translit, replace_i) for t in wt.tokenize(tmp, False))
     return tokens
 
 
