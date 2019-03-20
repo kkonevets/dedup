@@ -233,6 +233,40 @@ def get_existing(anew=False):
         return bulk
 
 
+def organization_info():
+    client = MongoClient(FLAGS.mongo_host)
+    db = client[FLAGS.feed_db]
+    total = db.etalons.count_documents({})
+
+    qs2org = []
+    for et in tools.tqdm(db.etalons.find({}), total=total):
+        assert et['comment'].startswith('{')
+        main_org = et['comment'].split('|')[0].lstrip('{')
+        syns = et.get('synonyms', [])
+        for s in syns:
+            comment = s['comment']
+            if comment == 'merged with master':
+                org = main_org
+            else:
+                org = comment
+            qs2org.append((et['_id'], s['id'], org))
+
+        qs2org.append((et['_id'], None, main_org))
+
+    qs2org = pd.DataFrame(qs2org)
+    qs2org.columns = ('qid', 'synid', 'org')
+
+    # qs2org['org'].value_counts().describe()
+
+    # samples = tools.load_samples(FLAGS.data_dir + '/samples.npz')
+    # sub = samples[['qid', 'synid']].drop_duplicates()
+    # merged = sub.merge(qs2org, on=['qid', 'synid'])
+
+    # assert len(merged) == len(sub)
+
+    return qs2org
+
+
 def main(argv):
     del argv  # Unused.
 
