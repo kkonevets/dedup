@@ -230,7 +230,8 @@ def get_existing(anew=False):
         db[cache_name].insert_many(bulk)
     else:
         bulk = [el for el in db[cache_name].find({})]
-        return bulk
+    
+    return bulk
 
 
 def organization_info():
