@@ -53,11 +53,9 @@ def generate_tts():
     random_state = 11
 
     train_samples = samples[samples['train']==1]
-    test = samples[samples['train']==0].sample(frac=1, 
-                        random_state=random_state)
+    test = samples[samples['train']==0]
 
     qids = train_samples['qid'].unique()
-
     qid_train, _ = train_test_split(qids, test_size=0.1, 
                                         random_state=random_state)
     cond = train_samples['qid'].isin(qid_train)
