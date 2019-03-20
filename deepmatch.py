@@ -1,13 +1,16 @@
 
 import deepmatcher as dm
 
+def tokenize(s):
+    return s.split()
+
 train, vali, test = dm.data.process(
     path='../data/dedup/deepmatch',
     cache='cacheddata.pth',
     train='train.csv',
     validation='vali.csv',
     test='test.csv',
-    tokenize=lambda s: s.split(),
+    tokenize=tokenize,
     embeddings='fasttext.ru.bin',
     pca=False)
 
