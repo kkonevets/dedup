@@ -1,29 +1,30 @@
-
 import deepmatcher as dm
 
-def tokenize(s):
-    return s.split()
+the_dir = "./"
+
+def tokenizer(s):
+  return s.split()
 
 train, vali, test = dm.data.process(
-    path='../data/dedup/deepmatch',
+    path=the_dir,
     cache='cacheddata.pth',
     train='train.csv',
     validation='vali.csv',
     test='test.csv',
-    tokenize=tokenize,
+    tokenize=tokenizer,
+    embeddings_cache_path=the_dir,
     embeddings='fasttext.ru.bin',
     pca=False)
 
 model = dm.MatchingModel(attr_summarizer='hybrid')
 
-best_save_path='../data/dedup/deepmatch/hybrid_model.pth'
-
+best_save_path = the_dir+'hybrid_model.pth'
 model.run_train(
     train,
     vali,
     epochs=10,
     batch_size=128,
-    best_save_path=best_save_path,
+    best_save_path=the_dir+'hybrid_model.pth',
     # pos_neg_ratio=3
     )
 
@@ -31,3 +32,26 @@ model.run_train(
 
 model.load_state(best_save_path)
 model.run_eval(test)
+
+predictions = model.run_prediction(test)
+predictions.head()
+
+predictions.to_csv(the_dir+'preds.csv')
+
+import tools
+import pandas as pd
+import scoring
+
+preds = pd.read_csv('../data/dedup/deepmatch/preds.csv')
+preds.set_index('id', inplace=True)
+preds.columns = ['prob']
+samples = tools.load_samples('../data/dedup/samples.npz')
+samples = samples[samples['ix']!=-1]
+test = samples[samples['train']==0]
+test = test.merge(preds, left_index=True, right_index=True)
+
+recall_scale = scoring.get_recall_test_scale()
+scoring.plot_precision_recall(test['target'], test['prob'], tag='_deep',
+                                recall_scale=recall_scale)
+scoring.topn_precision_recall_curve(test, 
+                topns=[1,2,3,5,10,20], n_thresholds=100, tag='_deep')

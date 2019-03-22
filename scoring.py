@@ -279,9 +279,11 @@ def examples_to_view(ftest, feed_db, release_db):
     df2.to_excel('../data/dedup/typeII.xlsx', index=False)
 
 
-def topn_precision_recall_curve(ftest, topns, n_thresholds=100):
+def topn_precision_recall_curve(ftest, topns, n_thresholds=100, tag=''):
     thresholds = np.arange(0, 1 + 0.1**9, 1/n_thresholds)
     scores = []
+
+    ftest.fillna(-1, inplace=True)
 
     for (qid, sid), g in tools.tqdm(ftest.groupby(['qid', 'synid'])):
         gsort = g.sort_values('prob', ascending=False)
@@ -324,13 +326,13 @@ def topn_precision_recall_curve(ftest, topns, n_thresholds=100):
             recall.append(tp/(tp+fn))
 
         recall = np.array(recall)
-        recall_scale = scoring.get_recall_test_scale()
-        scoring.plot_precision_recall_straight(precision, recall, 
-                tag='_top%d'%topn, recall_scale=recall_scale,
+        recall_scale = get_recall_test_scale()
+        plot_precision_recall_straight(precision, recall, 
+                tag='_top%d%s'%(topn,tag), recall_scale=recall_scale,
                 average_precision=np.mean(precision),
                 prefix = 'Top %d: ' % topn)
         
         df = pd.DataFrame([precision, list(recall*recall_scale)]).T
         df.columns = ('precision', 'recall')
-        df.to_csv('../data/dedup/prec_recall_top%d.csv' % topn,
+        df.to_csv('../data/dedup/prec_recall_top%d%s.csv' % (topn, tag),
                  index=False, sep='\t')
