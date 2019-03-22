@@ -58,8 +58,8 @@ test = test.merge(preds, left_index=True, right_index=True)
 
 texts = texts.merge(test[['qid', 'synid', 'fid']], left_index=True, right_index=True)
 texts = texts[['qid', 'synid', 'fid', 'label', 'prob', 'left_name', 'right_name']]
-texts.sort_values(['qid', 'label', 'synid', 'fid'], 
-                  ascending=[True, False, True, True], inplace=True)
+texts.sort_values(['qid', 'synid', 'label', 'fid'], 
+                  ascending=[True, True, False, True], inplace=True)
 texts = texts.astype({'qid':int, 'fid':int, 'label':int}, errors='ignore')
 texts.to_csv('../data/dedup/deepmatch/test_watch.csv', index=False)
 
