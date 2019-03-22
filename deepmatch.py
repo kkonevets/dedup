@@ -68,3 +68,8 @@ scoring.plot_precision_recall(test['target'], test['prob'], tag='_deep',
                                 recall_scale=recall_scale)
 scoring.topn_precision_recall_curve(test, 
                 topns=[1,2,3,5,10,20], n_thresholds=100, tag='_deep')
+
+t1 = texts[(texts['label']==0)&(texts['prob']>0.9)]
+t2 = texts[(texts['label']==1)&(texts['prob']<0.1)]
+t1.to_csv('../data/dedup/deepmatch/typeI.csv')
+t2.to_csv('../data/dedup/deepmatch/typeII.csv')
