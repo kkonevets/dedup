@@ -41,14 +41,27 @@ predictions.to_csv(the_dir+'preds.csv')
 import tools
 import pandas as pd
 import scoring
+import numpy as np
 
 preds = pd.read_csv('../data/dedup/deepmatch/preds.csv')
+preds.columns = ['id', 'prob']
+
+texts = pd.read_csv('../data/dedup/deepmatch/test.csv')
+texts = texts.merge(preds, on='id')
+texts.set_index('id', inplace=True)
+
 preds.set_index('id', inplace=True)
-preds.columns = ['prob']
 samples = tools.load_samples('../data/dedup/samples.npz')
 samples = samples[samples['ix']!=-1]
 test = samples[samples['train']==0]
 test = test.merge(preds, left_index=True, right_index=True)
+
+texts = texts.merge(test[['qid', 'synid', 'fid']], left_index=True, right_index=True)
+texts = texts[['qid', 'synid', 'fid', 'label', 'prob', 'left_name', 'right_name']]
+texts.sort_values(['qid', 'label', 'synid', 'fid'], 
+                  ascending=[True, False, True, True], inplace=True)
+texts = texts.astype({'qid':int, 'fid':int, 'label':int}, errors='ignore')
+texts.to_csv('../data/dedup/deepmatch/test_watch.csv', index=False)
 
 recall_scale = scoring.get_recall_test_scale()
 scoring.plot_precision_recall(test['target'], test['prob'], tag='_deep',
