@@ -75,6 +75,12 @@ def generate_tts():
     frame_to_txt(vali, mid2et, id2et, directory + 'vali.csv')
     frame_to_txt(test, mid2et, id2et, directory + 'test.csv')
 
+    # train_orgs = samples[(samples['train']==1)&(samples['vali']==0)]['org'].unique()
+    # test_orgs = samples[samples['train']==0]['org'].unique()
+    # vali_orgs = samples[samples['vali']==1]['org'].unique()
+
+    # set(train_orgs).intersection(test_orgs)
+    # set(train_orgs).intersection(vali_orgs)
 
 def main(argv):
     del argv  # Unused.
