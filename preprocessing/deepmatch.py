@@ -38,6 +38,15 @@ def frame_to_txt(df, mid2et, id2et, fname):
             writer.writerow(row)
 
 
+def print_target_split(df, tag):
+    df = df[['qid', 'synid', 'target']].copy()
+    df.fillna(-1, inplace=True)
+    grouped = df.groupby(['qid', 'synid'], sort=False)
+    qst = grouped.apply(lambda g: g['target'].max())
+    vals = qst.value_counts().to_dict()
+    print('%s: %f'% (tag, vals[1]/(vals[1]+vals[0])))
+
+
 def generate_tts():
     directory = FLAGS.data_dir + '/deepmatch/'
     if not os.path.exists(directory):
@@ -46,21 +55,21 @@ def generate_tts():
     samples = tools.load_samples(FLAGS.data_dir + '/samples.npz')
     samples = samples[samples['ix']!=-1]
 
+    random_state = 11
+
+    train = samples[(samples['train']==1)&(samples['vali']==0)]
+    train = train.sample(frac=1,random_state=random_state)
+    vali = samples[samples['vali']==1].sample(frac=1,random_state=random_state)
+    test = samples[samples['train']==0]
+
+    print_target_split(samples, 'samples')
+    print_target_split(train, 'train')
+    print_target_split(vali, 'vali')
+    print_target_split(test, 'test')
+
     normalizer = partial(tools.normalize, stem=False,
                          translit=False, replace_i=False)
     mid2et, id2et = id2ets(samples, normalizer, all_master=False)
-
-    random_state = 11
-
-    train_samples = samples[samples['train']==1]
-    test = samples[samples['train']==0]
-
-    qids = train_samples['qid'].unique()
-    qid_train, _ = train_test_split(qids, test_size=0.1, 
-                                        random_state=random_state)
-    cond = train_samples['qid'].isin(qid_train)
-    train = train_samples[cond].sample(frac=1,random_state=random_state)
-    vali = train_samples[~cond].sample(frac=1,random_state=random_state)
 
     frame_to_txt(train, mid2et, id2et, directory + 'train.csv')
     frame_to_txt(vali, mid2et, id2et, directory + 'vali.csv')

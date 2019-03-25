@@ -29,7 +29,8 @@ import itertools
 from tokenizer import tokenize
 
 FLAGS = tools.FLAGS
-SAMPLE_COLUMNS = ['qid', 'synid', 'fid', 'score', 'target', 'existing', 'ix']  # , 'train'
+SAMPLE_COLUMNS = ['qid', 'synid', 'fid', 'score', 
+                  'target', 'existing', 'ix']  # , 'train', 'vali'
 
 
 async def query_solr(session, text, rows=1, synonyms=True):
@@ -182,13 +183,23 @@ def solr_sample(elements):
 
     samples = pd.DataFrame(samples)
     samples.columns = SAMPLE_COLUMNS  # + train
-    arr = samples[['qid', 'existing']].drop_duplicates()
+    # arr = samples[['qid', 'existing']].drop_duplicates()
+
+    qs2org = organization_info()
+    lbefore = len(samples)
+    samples = samples.merge(qs2org, on=['qid', 'synid'])
+    assert lbefore == len(samples)
 
     if FLAGS.nrows == 100:
         save_positions(positions)
-    qids_train, qids_test = train_test_split(
-        arr['qid'], test_size=0.2, random_state=11, stratify=arr['existing'])
-    samples['train'] = samples['qid'].isin(qids_train).astype(int)
+
+    # qids_train, qids_test = train_test_split(
+    #     arr['qid'], test_size=0.2, random_state=11, stratify=arr['existing'])
+    cond = org_split(samples, test_size=0.1)
+    samples['train'] = cond
+    cond = org_split(samples[cond], test_size=0.1)
+    samples['vali'] = (samples['train']) & (~cond)
+    del samples['org']
 
     X_samples = samples.values.astype(np.float32)
     np.savez(FLAGS.data_dir + '/samples.npz',
@@ -257,14 +268,6 @@ def organization_info():
     qs2org = pd.DataFrame(qs2org)
     qs2org.columns = ('qid', 'synid', 'org')
 
-    # qs2org['org'].value_counts().describe()
-
-    # samples = tools.load_samples(FLAGS.data_dir + '/samples.npz')
-    # sub = samples[['qid', 'synid']].drop_duplicates()
-    # merged = sub.merge(qs2org, on=['qid', 'synid'])
-
-    # assert len(merged) == len(sub)
- 
     return qs2org
 
 
@@ -299,10 +302,7 @@ def org_split(samples, test_size=0.1):
 
     print(counts[counts.index.isin(test_groups)].sum()/counts.sum())
     cond = samples['org'].isin(train_groups)
-    train = samples[cond]
-    test = samples[~cond]
-
-    return train, test
+    return cond
     
 
 def main(argv):
@@ -337,5 +337,5 @@ if __name__ == '__main__':
     if hasattr(__main__, '__file__'):
         app.run(main)
     else:
-        sys.argv += ['--data_dir=../data/dedup/', '--nrows=5']
+        sys.argv += ['--data_dir=../data/dedup/', '--nrows=20']
         FLAGS(sys.argv)
