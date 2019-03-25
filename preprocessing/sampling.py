@@ -264,9 +264,46 @@ def organization_info():
     # merged = sub.merge(qs2org, on=['qid', 'synid'])
 
     # assert len(merged) == len(sub)
-
+ 
     return qs2org
 
+
+def org_split(samples, test_size=0.1):
+    counts = samples['org'].value_counts()
+    grouped = counts.groupby(counts, sort=False)
+
+    train_groups, test_groups = [], []
+    train_sz, test_sz = 0, 0
+    for c, g in grouped:
+        cur_groups = g.index.tolist()
+        if len(cur_groups) > 1:
+            trn, tst = train_test_split(cur_groups, test_size=test_size)
+            train_groups += trn
+            test_groups += tst
+            cond = g.index.isin(trn)
+            train_sz += g[cond].sum()
+            test_sz += g[~cond].sum()
+        else:
+            total = train_sz + test_sz
+            if total == 0:
+                train_groups += cur_groups
+                train_sz += g.sum()
+            else:
+                frac = (test_sz+c)/(total+c)
+                if frac > test_size:
+                    train_groups += cur_groups
+                    train_sz += g.sum()
+                else:
+                    test_groups += cur_groups     
+                    test_sz += g.sum()           
+
+    print(counts[counts.index.isin(test_groups)].sum()/counts.sum())
+    cond = samples['org'].isin(train_groups)
+    train = samples[cond]
+    test = samples[~cond]
+
+    return train, test
+    
 
 def main(argv):
     del argv  # Unused.
