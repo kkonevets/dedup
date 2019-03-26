@@ -86,13 +86,8 @@ def id2ets(samples, normalizer=None, all_master=False):
     return mid2et, id2et_new
 
 
-def make_corpus():
+def make_corpus(samples):
     corpus = []
-
-    samples = tools.load_samples(FLAGS.data_dir + '/samples.npz')
-    if 'train' not in samples.columns:
-        samples['train'] = 0  # test
-
     # translit = not FLAGS.notranslit
 
     mid2et, id2et = id2ets(samples, tools.normalize, all_master=FLAGS.build_tfidf)
@@ -100,24 +95,24 @@ def make_corpus():
     ###############################################################
 
     for et in mid2et.values():
-        corpus.append((None, None, et['_id'], None, et['text']))
+        corpus.append((None, None, et['_id'], et['text']))
 
     ###############################################################
 
-    subdf = samples[['qid', 'synid', 'train']].drop_duplicates()
-    for qid, sid, train in subdf.values:
+    subdf = samples[['qid', 'synid']].drop_duplicates()
+    for qid, sid in subdf.values:
         sid = None if pd.isna(sid) else sid
         et = id2et[(qid, sid)]
-        corpus.append((qid, sid, None, train, et['text']))
+        corpus.append((qid, sid, None, et['text']))
 
     corpus = np.array(corpus)
-    columns = ['qid', 'synid', 'fid', 'train', 'text']
+    columns = ['qid', 'synid', 'fid', 'text']
     np.savez(FLAGS.data_dir + '/corpus.npz', samples=corpus, columns=columns)
 
     return corpus, columns
 
 
-def get_tfidf(corpus, columns):
+def get_tfidf(samples, corpus, columns):
     '''
     Build tf-idf model using master data and 1c-Fresh train data
     '''
@@ -136,7 +131,11 @@ def get_tfidf(corpus, columns):
 
     corpus = pd.DataFrame(corpus)
     corpus.columns = columns
-    corpus = corpus[corpus['train'] != 0]
+
+    samples = samples[(samples['train']==0)|(samples['vali']==1)]
+    qids = samples['qid'].unique()
+
+    corpus = corpus[~corpus['qid'].isin(qids)]
     if len(corpus) == 0:  # test
         return
     texts = corpus['text'].values
@@ -152,9 +151,10 @@ def get_tfidf(corpus, columns):
 
 def main(argv):
     del argv  # Unused.
-    corpus, columns = make_corpus()
+    samples = tools.load_samples(FLAGS.data_dir + '/samples.npz')
+    corpus, columns = make_corpus(samples)
     if FLAGS.build_tfidf:
-        get_tfidf(corpus, columns)
+        get_tfidf(samples, corpus, columns)
 
 
 if __name__ == '__main__':
@@ -164,5 +164,5 @@ if __name__ == '__main__':
     if hasattr(__main__, '__file__'):
         app.run(main)
     else:
-        sys.argv += ['--data_dir=../data/dedup', ]
+        sys.argv += ['--data_dir=../data/dedup', '--build_tfidf']
         FLAGS(sys.argv)

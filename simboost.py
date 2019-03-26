@@ -88,23 +88,18 @@ def build_ranker():
 
 
 def build_classifier():
-    ftrain, ftest = load_sim_ftrs()
+    ftrain, fvali, ftest = load_sim_ftrs()
+
     ftrain = ftrain[ftrain['ix'] != -1]
+    fvali = fvali[fvali['ix'] != -1]
     ftest = ftest[ftest['ix'] != -1]
 
     recall_scale = scoring.get_recall_test_scale()
 
-    qid_train, _ = train_test_split(
-        ftrain['qid'].unique(), test_size=0.1, random_state=42)
-
-    cond = ftrain['qid'].isin(qid_train)
-    train_part = ftrain[cond]
-    vali_part = ftrain[~cond]
-
     value_cols = [c for c in ftrain.columns if c not in INFO_COLUMNS]
 
-    dtrain = DMatrix(train_part[value_cols], label=train_part['target'])
-    dvali = DMatrix(vali_part[value_cols], label=vali_part['target'])
+    dtrain = DMatrix(ftrain[value_cols], label=train_part['target'])
+    dvali = DMatrix(fvali[value_cols], label=vali_part['target'])
     dtest = DMatrix(ftest[value_cols], label=ftest['target'])
 
     params = {

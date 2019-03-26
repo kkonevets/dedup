@@ -10,10 +10,11 @@ INFO_COLUMNS = ['qid', 'synid', 'fid', 'target']
 
 
 class Letor:
-    def __init__(self, data_dir, train_ftrs, test_ftrs):
+    def __init__(self, data_dir, train_ftrs, vali_ftrs, test_ftrs):
         self.data_dir = data_dir
         self.test_only = train_ftrs is None
         self.train_ftrs = Letor._exclude_not_found(train_ftrs)
+        self.vali_ftrs = Letor._exclude_not_found(vali_ftrs)
         self.test_ftrs = Letor._exclude_not_found(test_ftrs)
         self.std_scaler_path = '../data/dedup/standard_scaler.pkl'
         self.value_cols = [c for c in test_ftrs.columns
@@ -42,18 +43,9 @@ class Letor:
             X_train, ixs_train, X_vali, ixs_vali = [None]*4
         else:
             self.train_ftrs.sort_values(['qid', 'synid'], inplace=True)
-
-            qid_train, qid_vali = train_test_split(
-                self.train_ftrs['qid'].unique(), test_size=0.1, random_state=42)
-            cond = self.train_ftrs['qid'].isin(qid_train)
-            train_part = self.train_ftrs[cond]
-            vali_part = self.train_ftrs[~cond]
-            ixs_train = train_part[INFO_COLUMNS].values
-            ixs_vali = vali_part[INFO_COLUMNS].values
-
             scaler = StandardScaler()
-            X_train = scaler.fit_transform(train_part[self.value_cols])
-            X_vali = scaler.transform(vali_part[self.value_cols])
+            X_train = scaler.fit_transform(train_ftrs[self.value_cols])
+            X_vali = scaler.transform(vali_ftrs[self.value_cols])
             tools.do_pickle(scaler, self.std_scaler_path)
 
         self.test_ftrs.sort_values(['qid', 'synid'], inplace=True)

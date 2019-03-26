@@ -16,7 +16,7 @@ def main(argv):
     mtotal = mdb.etalons.count_documents({})
 
     samples = tools.load_samples('../data/dedup/samples.npz')
-    samples = samples[samples['train'] == 0]
+    samples = samples[(samples['train'] == 0)|(samples['vali'] == 1)]
     test_ids = list(samples['qid'].unique())
 
     db = client[FLAGS.feed_db]

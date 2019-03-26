@@ -52,7 +52,7 @@ def to_example(gen, filename):
     writer.close()
 
 
-def compute_tfidf_dists(train_gen, test_gen):
+def compute_tfidf_dists(train_gen, vali_gen, test_gen):
     model = tools.do_unpickle('../data/dedup/tfidf_model.pkl')
 
     def get_dists(gen, fname):
@@ -70,10 +70,11 @@ def compute_tfidf_dists(train_gen, test_gen):
         np.savez(fname, vals=np.hstack([ixs, np.array([dists]).T]))
 
     get_dists(train_gen, FLAGS.data_dir + '/train_tfidf_cosine.npz')
+    get_dists(vali_gen, FLAGS.data_dir + '/vali_tfidf_cosine.npz')
     get_dists(test_gen, FLAGS.data_dir + '/test_tfidf_cosine.npz')
 
 
-def compute_fasttext_dists(train_gen_raw, test_gen_raw):
+def compute_fasttext_dists(train_gen, vali_gen, test_gen):
     from gensim.models import FastText
 
     # model = FastText.load_fasttext_format(
@@ -106,8 +107,9 @@ def compute_fasttext_dists(train_gen_raw, test_gen_raw):
         dists = np.array(dists, dtype=np.float32)
         np.savez(fname, vals=dists)
 
-    get_dists(train_gen_raw, FLAGS.data_dir + '/train_fasttext_cosine.npz')
-    get_dists(test_gen_raw, FLAGS.data_dir + '/test_fasttext_cosine.npz')
+    get_dists(train_gen, FLAGS.data_dir + '/train_fasttext_cosine.npz')
+    get_dists(vali_gen, FLAGS.data_dir + '/vali_fasttext_cosine.npz')
+    get_dists(test_gen, FLAGS.data_dir + '/test_fasttext_cosine.npz')
 
 
 def load_sim_ftrs():
@@ -139,10 +141,11 @@ def load_sim_ftrs():
         sim_ftrs.fillna(-1, inplace=True)
         return sim_ftrs
 
-    test_sim_ftrs = load_one('test')
-    train_sim_ftrs = load_one('train')
+    test_ftrs = load_one('test')
+    vali_ftrs = load_one('vali')
+    train_ftrs = load_one('train')
 
-    return train_sim_ftrs, test_sim_ftrs
+    return train_ftrs, vali_ftrs, test_ftrs
 
 
 def main(argv):
@@ -156,19 +159,15 @@ def main(argv):
     if FLAGS.build_fasttext:
         # do not pass traslited words
         compute_fasttext_dists(*prod.gen_pairs())
-    if FLAGS.build_tfrecord:
-        train_gen, test_gen = prod.gen_pairs()
-        to_example(train_gen, FLAGS.data_dir + '/train.tfrecord')
-        to_example(test_gen, FLAGS.data_dir + '/test.tfrecord')
     if FLAGS.build_features:
-        train_gen, test_gen = prod.gen_pairs()
-        textsim.extract_similarity_features(
-            test_gen, COLNAMES, FLAGS.data_dir + '/test_sim_ftrs.h5')
-        textsim.extract_similarity_features(
-            train_gen, COLNAMES, FLAGS.data_dir + '/train_sim_ftrs.h5')
+        train_gen, vali_gen, test_gen = prod.gen_pairs()
+        fseq = [(train_gen, 'train'), (vali_gen, 'vali'), (test_gen, 'test')]
+        for gen, tag in fseq:
+            textsim.extract_similarity_features(
+                gen, COLNAMES, FLAGS.data_dir + '/%s_sim_ftrs.h5' % tag)
 
-    train_sim_ftrs, test_sim_ftrs = load_sim_ftrs()
-    letor = Letor(FLAGS.data_dir, train_sim_ftrs, test_sim_ftrs)
+    train_ftrs, vali_ftrs, test_ftrs = load_sim_ftrs()
+    letor = Letor(FLAGS.data_dir, train_ftrs, vali_ftrs, test_ftrs)
     letor.save_txt()
 
 

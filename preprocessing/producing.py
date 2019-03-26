@@ -19,15 +19,17 @@ class Producer:
     def gen_pairs(self):
         samples = self.samples
         if 'train' in samples.columns:
-            train_gen = self.gen_data(
-                samples[samples['train'] == 1])
+            train_cond = (samples['train'] == 1)&(samples['vali'] == 0)
+            train_gen = self.gen_data(samples[train_cond])
+            vali_gen = self.gen_data(samples[samples['vali'] == 1])
             test_samples = samples[samples['train'] == 0]
         else:
             train_gen = iter(())
+            vali_gen = iter(())
             test_samples = samples
 
         test_gen = self.gen_data(test_samples)
-        return train_gen, test_gen
+        return train_gen, vali_gen, test_gen
 
     @staticmethod
     def get_id2text(corpus, tag, ids):
