@@ -17,14 +17,16 @@ train, vali, test = dm.data.process(
     pca=False)
 
 model = dm.MatchingModel(attr_summarizer='hybrid')
-
 best_save_path = the_dir+'hybrid_model.pth'
+
+# model.load_state(best_save_path)
+
 model.run_train(
     train,
     vali,
-    epochs=30,
+    epochs=6,
     batch_size=128,
-    best_save_path=the_dir+'hybrid_model.pth',
+    best_save_path=best_save_path,
     # pos_neg_ratio=3
     )
 

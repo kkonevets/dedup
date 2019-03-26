@@ -145,7 +145,7 @@ def build_classifier():
     # scoring.plot_binary_prob_freqs(dtest.get_label(), test_probs)
 
     scoring.topn_precision_recall_curve(ftest, 
-                    topns=[1,2,3,5,10,25], n_thresholds=100)
+                    topns=[1,2,3,5,10,20], n_thresholds=100)
     
 
 def test():
