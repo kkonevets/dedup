@@ -34,7 +34,7 @@ class Letor:
         exclude = ftrs[ftrs['ix'] == -1]['synid'].unique()
         cond0 = ~ftrs['synid'].isin(exclude)
 
-        cond = ftrs['synid'].isin(st['synid']) & cond0
+        cond = ftrs['synid'].isin(st['synid'].unique()) & cond0
         return ftrs[cond]
 
     def _split(self):
@@ -44,9 +44,14 @@ class Letor:
         else:
             self.train_ftrs.sort_values(['qid', 'synid'], inplace=True)
             scaler = StandardScaler()
-            X_train = scaler.fit_transform(train_ftrs[self.value_cols])
-            X_vali = scaler.transform(vali_ftrs[self.value_cols])
+            X_train = scaler.fit_transform(self.train_ftrs[self.value_cols])
+            ixs_train = self.train_ftrs[INFO_COLUMNS].values
             tools.do_pickle(scaler, self.std_scaler_path)
+
+            self.vali_ftrs.sort_values(['qid', 'synid'], inplace=True)
+            X_vali = scaler.transform(self.vali_ftrs[self.value_cols])
+            ixs_vali = self.vali_ftrs[INFO_COLUMNS].values
+
 
         self.test_ftrs.sort_values(['qid', 'synid'], inplace=True)
         X_test = scaler.transform(self.test_ftrs[self.value_cols])

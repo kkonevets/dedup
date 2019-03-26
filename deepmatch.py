@@ -22,11 +22,13 @@ best_save_path = the_dir+'hybrid_model.pth'
 model.run_train(
     train,
     vali,
-    epochs=10,
+    epochs=30,
     batch_size=128,
     best_save_path=the_dir+'hybrid_model.pth',
     # pos_neg_ratio=3
     )
+
+# model.save_state(the_dir+'hybrid_model_10.pth')
 
 ########################### testing #####################################
 

@@ -98,8 +98,8 @@ def build_classifier():
 
     value_cols = [c for c in ftrain.columns if c not in INFO_COLUMNS]
 
-    dtrain = DMatrix(ftrain[value_cols], label=train_part['target'])
-    dvali = DMatrix(fvali[value_cols], label=vali_part['target'])
+    dtrain = DMatrix(ftrain[value_cols], label=ftrain['target'])
+    dvali = DMatrix(fvali[value_cols], label=fvali['target'])
     dtest = DMatrix(ftest[value_cols], label=ftest['target'])
 
     params = {
@@ -141,8 +141,8 @@ def build_classifier():
     # ftest['prob'] = test_probs
     # ftest[INFO_COLUMNS+['score', 'prob']].sort_values(['qid', 'synid', 'fid', 'target'])
 
-    scoring.examples_to_view(ftest, FLAGS.feed_db, FLAGS.release_db)
-    scoring.plot_binary_prob_freqs(dtest.get_label(), test_probs)
+    # scoring.examples_to_view(ftest, FLAGS.feed_db, FLAGS.release_db)
+    # scoring.plot_binary_prob_freqs(dtest.get_label(), test_probs)
 
     scoring.topn_precision_recall_curve(ftest, 
                     topns=[1,2,3,5,10,25], n_thresholds=100)
