@@ -51,12 +51,8 @@ import numpy as np
 
 preds = pd.read_csv('../data/dedup/deepmatch/dm10/preds10.csv')
 preds.columns = ['id', 'prob']
-<<<<<<< HEAD
- 
-=======
-
->>>>>>> 97e671a5bfdca1bbcec3dbfd89527722f3dab8d8
 preds.set_index('id', inplace=True)
+
 samples = tools.load_samples('../data/dedup/samples.npz')
 samples = samples[samples['ix']!=-1]
 test = samples[samples['train']==0]
