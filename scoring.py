@@ -285,7 +285,8 @@ def topn_precision_recall_curve(ftest, topns, n_thresholds=100, tag=''):
 
     ftest.fillna(-1, inplace=True)
 
-    for (qid, sid), g in tools.tqdm(ftest.groupby(['qid', 'synid'])):
+    for (qid, sid), g in tools.tqdm(ftest.groupby(['qid', 'synid'], 
+                                    sort=False)):
         gsort = g.sort_values('prob', ascending=False)
         tmax_global = gsort['target'].max()
         pmax = gsort['prob'].iloc[0]
@@ -319,7 +320,7 @@ def topn_precision_recall_curve(ftest, topns, n_thresholds=100, tag=''):
         precision, recall = [], []
         for j in range(scores.shape[2]):
             tp, fp, tn, fn = scores[:,i,j,:].sum(axis=0)
-            if tp+fp:
+            if tp+fp != 0:
                 precision.append(tp/(tp+fp))
             else:
                 precision.append(1)

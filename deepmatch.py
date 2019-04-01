@@ -1,4 +1,5 @@
 import deepmatcher as dm
+import torch
 
 the_dir = "./"
 
@@ -27,6 +28,7 @@ model.run_train(
     epochs=6,
     batch_size=128,
     best_save_path=best_save_path,
+    device=torch.device('cuda')
     # pos_neg_ratio=3
     )
 
