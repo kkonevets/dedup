@@ -49,9 +49,13 @@ import pandas as pd
 import scoring
 import numpy as np
 
-preds = pd.read_csv('../data/dedup/deepmatch/preds.csv')
+preds = pd.read_csv('../data/dedup/deepmatch/dm10/preds10.csv')
 preds.columns = ['id', 'prob']
+<<<<<<< HEAD
  
+=======
+
+>>>>>>> 97e671a5bfdca1bbcec3dbfd89527722f3dab8d8
 preds.set_index('id', inplace=True)
 samples = tools.load_samples('../data/dedup/samples.npz')
 samples = samples[samples['ix']!=-1]
@@ -67,7 +71,6 @@ scoring.topn_precision_recall_curve(test,
 texts = pd.read_csv('../data/dedup/deepmatch/test.csv')
 texts = texts.merge(preds, on='id')
 texts.set_index('id', inplace=True)
- 
 texts = texts.merge(test[['qid', 'synid', 'fid']], left_index=True, right_index=True)
 texts = texts[['qid', 'synid', 'fid', 'label', 'prob', 'left_name', 'right_name']]
 texts.sort_values(['qid', 'synid', 'label', 'fid'], 
@@ -82,8 +85,7 @@ t2.to_csv('../data/dedup/deepmatch/typeII.csv')
 
 
 prob = preds['prob']
-prob[prob>0.9].describe()
- 
+prob[prob>0.9].describe() 
 y_true, probas_pred = test['target'], test['prob']
 cond = test['prob']>0.99
 sub=test[cond][['target', 'prob']]
