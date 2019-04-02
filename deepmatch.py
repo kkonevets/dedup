@@ -6,7 +6,7 @@ the_dir = "./"
 def tokenizer(s):
   return s.split()
 
-train, vali, test = dm.data.process(
+train_dataset, vali, test = dm.data.process(
     path=the_dir,
     cache='cacheddata.pth',
     train='train.csv',
@@ -23,12 +23,12 @@ best_save_path = the_dir+'hybrid_model.pth'
 # model.load_state(best_save_path)
 
 model.run_train(
-    train,
+    train_dataset,
     vali,
     epochs=6,
     batch_size=128,
     best_save_path=best_save_path,
-    device=torch.device('cuda')
+    device='cuda'
     # pos_neg_ratio=3
     )
 
@@ -86,3 +86,4 @@ y_true, probas_pred = test['target'], test['prob']
 cond = test['prob']>0.99
 sub=test[cond][['target', 'prob']]
 sub['target'].sum()/len(sub['prob'])
+
