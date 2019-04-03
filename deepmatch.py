@@ -37,19 +37,18 @@ model.run_train(
 ########################### testing #####################################
 
 model.load_state(best_save_path)
-model.run_eval(test)
 
-predictions = model.run_prediction(test)
+predictions = model.run_prediction(test, device='cuda')
 predictions.head()
 
-predictions.to_csv(the_dir+'preds.csv')
+predictions.to_csv(the_dir+'preds2.csv')
 
 import tools
 import pandas as pd
 import scoring
 import numpy as np
 
-preds = pd.read_csv('../data/dedup/deepmatch/dm10/preds10.csv')
+preds = pd.read_csv('../data/dedup/deepmatch/preds2.csv')
 preds.columns = ['id', 'prob']
 preds.set_index('id', inplace=True)
 
